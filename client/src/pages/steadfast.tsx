@@ -1,0 +1,424 @@
+import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Truck, Send, RefreshCw, Package, CheckCircle, XCircle, Clock, Settings, Save, Trash2 } from "lucide-react";
+import type { SaleWithItems } from "@shared/schema";
+
+function formatTaka(amount: number): string {
+  return `৳${amount.toLocaleString("en-BD")}`;
+}
+
+function formatDate(date: string | Date | null): string {
+  if (!date) return "-";
+  return new Date(date).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function getStatusBadge(status: string | null) {
+  switch (status) {
+    case "delivered":
+      return <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300" data-testid="badge-status-delivered"><CheckCircle className="h-3 w-3 mr-1" />Delivered</Badge>;
+    case "in_review":
+      return <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" data-testid="badge-status-in-review"><Clock className="h-3 w-3 mr-1" />In Review</Badge>;
+    case "cancelled":
+    case "cancelled_delivery":
+    case "returned":
+      return <Badge className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" data-testid="badge-status-cancelled"><XCircle className="h-3 w-3 mr-1" />Returned/Cancelled</Badge>;
+    case "partial_delivered":
+      return <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300" data-testid="badge-status-partial"><Package className="h-3 w-3 mr-1" />Partial Delivered</Badge>;
+    default:
+      return <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300" data-testid="badge-status-pending"><Clock className="h-3 w-3 mr-1" />{status || "Pending"}</Badge>;
+  }
+}
+
+interface SteadfastConfigData {
+  apiKey: string;
+  secretKey: string;
+  baseUrl: string;
+}
+
+export default function Steadfast() {
+  const { toast } = useToast();
+  const [apiKey, setApiKey] = useState("");
+  const [secretKey, setSecretKey] = useState("");
+  const [baseUrl, setBaseUrl] = useState("https://portal.packzy.com/api/v1");
+  const [amountOverrides, setAmountOverrides] = useState<Record<number, number>>({});
+
+  const { data: config, isLoading: configLoading } = useQuery<SteadfastConfigData>({
+    queryKey: ["/api/steadfast-config"],
+  });
+
+  useEffect(() => {
+    if (config) {
+      setApiKey(config.apiKey);
+      setSecretKey(config.secretKey);
+      setBaseUrl(config.baseUrl);
+    }
+  }, [config]);
+
+  const saveConfig = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/steadfast-config", { apiKey, secretKey, baseUrl });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/steadfast-config"] });
+      toast({ title: "Settings Saved", description: "Steadfast API configuration updated" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const { data: allSales = [], isLoading: salesLoading } = useQuery<SaleWithItems[]>({
+    queryKey: ["/api/sales"],
+  });
+
+  const { data: courierSales = [], isLoading: courierLoading } = useQuery<SaleWithItems[]>({
+    queryKey: ["/api/courier-sales"],
+  });
+
+  const sendToCourier = useMutation({
+    mutationFn: async ({ saleId, amount }: { saleId: number; amount: number }) => {
+      const res = await apiRequest("POST", `/api/steadfast/send/${saleId}`, { amount });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/courier-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      toast({ title: "Sent to Steadfast", description: "Consignment created successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const checkStatusMutation = useMutation({
+    mutationFn: async (saleId: number) => {
+      const res = await apiRequest("POST", `/api/steadfast/status/${saleId}`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courier-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      const status = data?.courierStatus || "unknown";
+      toast({ title: "Status Updated", description: `Delivery status: ${status}` });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteCourierOrder = useMutation({
+    mutationFn: async (saleId: number) => {
+      const res = await apiRequest("DELETE", `/api/steadfast/order/${saleId}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/courier-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({ title: "Disconnected", description: "Courier connection removed from sale" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const eligibleSales = allSales.filter(
+    (s) => !s.isSentToCourier && s.customerName && s.customerPhone && s.customerAddress
+  );
+
+  const isLoading = salesLoading || courierLoading;
+  const isConfigured = config && config.apiKey && config.secretKey;
+
+  return (
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold" data-testid="text-page-title">Steadfast Courier</h1>
+        <p className="text-muted-foreground text-sm mt-1">Send orders to Steadfast and track delivery status</p>
+      </div>
+
+      <Card data-testid="card-settings">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            API Settings
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {configLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="apiKey">API Key</Label>
+                <Input
+                  id="apiKey"
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="Enter API Key"
+                  data-testid="input-api-key"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="secretKey">Secret Key</Label>
+                <Input
+                  id="secretKey"
+                  type="password"
+                  value={secretKey}
+                  onChange={(e) => setSecretKey(e.target.value)}
+                  placeholder="Enter Secret Key"
+                  data-testid="input-secret-key"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="baseUrl">Base URL</Label>
+                <Input
+                  id="baseUrl"
+                  value={baseUrl}
+                  onChange={(e) => setBaseUrl(e.target.value)}
+                  placeholder="https://portal.packzy.com/api/v1"
+                  data-testid="input-base-url"
+                />
+              </div>
+              <div className="sm:col-span-3">
+                <Button
+                  onClick={() => saveConfig.mutate()}
+                  disabled={saveConfig.isPending || !apiKey || !secretKey || !baseUrl}
+                  data-testid="button-save-config"
+                >
+                  <Save className="h-4 w-4 mr-1" />
+                  {saveConfig.isPending ? "Saving..." : "Save Settings"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {eligibleSales.length > 0 && (
+        <Card data-testid="card-eligible-sales">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Send className="h-5 w-5" />
+              Ready to Send ({eligibleSales.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Sale #</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Address</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="w-[180px]">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {eligibleSales.map((sale) => (
+                  <TableRow key={sale.id} data-testid={`row-eligible-${sale.id}`}>
+                    <TableCell className="font-medium" data-testid={`text-sale-id-${sale.id}`}>#{sale.id}</TableCell>
+                    <TableCell data-testid={`text-customer-${sale.id}`}>{sale.customerName}</TableCell>
+                    <TableCell>{sale.customerPhone}</TableCell>
+                    <TableCell className="max-w-[200px] truncate">{sale.customerAddress}</TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        className="w-[120px] font-semibold"
+                        value={amountOverrides[sale.id] ?? sale.totalPrice}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setAmountOverrides((prev) => ({ ...prev, [sale.id]: val }));
+                        }}
+                        min={0}
+                        data-testid={`input-amount-${sale.id}`}
+                      />
+                    </TableCell>
+                    <TableCell>{formatDate(sale.createdAt)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              size="sm"
+                              disabled={sendToCourier.isPending || !isConfigured}
+                              data-testid={`button-send-${sale.id}`}
+                            >
+                              <Truck className="h-4 w-4 mr-1" />
+                              Send
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Send to Steadfast?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will create a consignment for {sale.customerName} with COD amount {formatTaka(amountOverrides[sale.id] ?? sale.totalPrice)}.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel data-testid="button-cancel-send">Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => sendToCourier.mutate({ saleId: sale.id, amount: amountOverrides[sale.id] ?? sale.totalPrice })}
+                                data-testid="button-confirm-send"
+                              >
+                                Confirm Send
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {!isConfigured && (
+              <p className="text-sm text-amber-600 dark:text-amber-400 mt-3" data-testid="text-config-warning">
+                Configure API settings above before sending orders.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <Card data-testid="card-courier-orders">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Truck className="h-5 w-5" />
+            Courier Orders ({courierSales.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
+            </div>
+          ) : courierSales.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground" data-testid="text-no-courier-orders">
+              <Truck className="h-12 w-12 mx-auto mb-3 opacity-30" />
+              <p>No courier orders yet</p>
+              <p className="text-sm mt-1">Send sales to Steadfast to see them here</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Sale #</TableHead>
+                  <TableHead>Consignment ID</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="w-[180px]">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {courierSales.map((sale) => (
+                  <TableRow key={sale.id} data-testid={`row-courier-${sale.id}`}>
+                    <TableCell className="font-medium">#{sale.id}</TableCell>
+                    <TableCell className="font-mono text-sm" data-testid={`text-consignment-${sale.id}`}>{sale.consignmentId || "-"}</TableCell>
+                    <TableCell>{sale.customerName}</TableCell>
+                    <TableCell>{sale.customerPhone}</TableCell>
+                    <TableCell className="font-semibold">{formatTaka(sale.totalPrice)}</TableCell>
+                    <TableCell>{getStatusBadge(sale.courierStatus)}</TableCell>
+                    <TableCell>{formatDate(sale.createdAt)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => checkStatusMutation.mutate(sale.id)}
+                          disabled={checkStatusMutation.isPending || !isConfigured}
+                          data-testid={`button-check-status-${sale.id}`}
+                        >
+                          <RefreshCw className={`h-4 w-4 mr-1 ${checkStatusMutation.isPending ? "animate-spin" : ""}`} />
+                          Status
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              disabled={deleteCourierOrder.isPending || sale.courierStatus === "delivered"}
+                              data-testid={`button-delete-courier-${sale.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Disconnect Courier?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                {sale.courierStatus === "delivered"
+                                  ? "Delivered orders cannot be disconnected."
+                                  : `This will remove the courier connection for ${sale.customerName}. The sale record will be kept unchanged.`}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel data-testid="button-cancel-delete-courier">Cancel</AlertDialogCancel>
+                              {sale.courierStatus !== "delivered" && (
+                                <AlertDialogAction
+                                  onClick={() => deleteCourierOrder.mutate(sale.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  data-testid="button-confirm-delete-courier"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              )}
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
