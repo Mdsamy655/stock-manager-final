@@ -1,6 +1,7 @@
 import { eq, desc, sql, gte, and } from "drizzle-orm";
 import { db, pool } from "./db";
 import {
+  users,
   products,
   sales,
   saleItems,
@@ -11,6 +12,8 @@ import {
   payments,
   investors,
   steadfastConfig,
+  type User,
+  type InsertUser,
   type Product,
   type InsertProduct,
   type Sale,
@@ -36,6 +39,7 @@ import {
 } from "@shared/schema";
 
 interface CreateSaleInput {
+  userId: number;
   customerId?: number | null;
   customerName?: string | null;
   customerPhone?: string | null;
@@ -54,62 +58,69 @@ interface CreateSaleInput {
 }
 
 export interface IStorage {
-  getProducts(): Promise<Product[]>;
-  getProduct(id: number): Promise<Product | undefined>;
-  getProductByCode(code: string): Promise<Product | undefined>;
-  createProduct(product: InsertProduct): Promise<Product>;
-  updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product | undefined>;
-  adjustStock(productId: number, adjustmentType: string, quantity: number, reason?: string): Promise<StockHistory>;
+  getUser(id: number): Promise<User | undefined>;
+  getUserByGoogleId(googleId: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+
+  getProducts(userId: number): Promise<Product[]>;
+  getProduct(id: number, userId: number): Promise<Product | undefined>;
+  getProductByCode(code: string, userId: number): Promise<Product | undefined>;
+  createProduct(userId: number, product: InsertProduct): Promise<Product>;
+  updateProduct(id: number, userId: number, product: Partial<InsertProduct>): Promise<Product | undefined>;
+  adjustStock(productId: number, userId: number, adjustmentType: string, quantity: number, reason?: string): Promise<StockHistory>;
   getStockHistory(productId: number): Promise<StockHistory[]>;
-  deleteProduct(id: number): Promise<boolean>;
-  updateSaleCourier(id: number, consignmentId: string, courierStatus: string): Promise<SaleWithItems | null>;
-  cancelCourierOrder(id: number): Promise<boolean>;
-  getCourierSales(): Promise<SaleWithItems[]>;
+  deleteProduct(id: number, userId: number): Promise<boolean>;
+  updateSaleCourier(id: number, userId: number, consignmentId: string, courierStatus: string): Promise<SaleWithItems | null>;
+  cancelCourierOrder(id: number, userId: number): Promise<boolean>;
+  getCourierSales(userId: number): Promise<SaleWithItems[]>;
 
-  getSteadfastConfig(): Promise<SteadfastConfig | null>;
-  saveSteadfastConfig(apiKey: string, secretKey: string, baseUrl: string): Promise<SteadfastConfig>;
+  getSteadfastConfig(userId: number): Promise<SteadfastConfig | null>;
+  saveSteadfastConfig(userId: number, apiKey: string, secretKey: string, baseUrl: string): Promise<SteadfastConfig>;
 
-  getSales(): Promise<SaleWithItems[]>;
+  getSales(userId: number): Promise<SaleWithItems[]>;
   createSale(input: CreateSaleInput): Promise<SaleWithItems>;
-  updateSalePayment(id: number, paidAmount: number, dueAmount: number): Promise<SaleWithItems | null>;
-  deleteSale(id: number): Promise<boolean>;
+  updateSalePayment(id: number, userId: number, paidAmount: number, dueAmount: number): Promise<SaleWithItems | null>;
+  deleteSale(id: number, userId: number): Promise<boolean>;
 
-  getExpenses(): Promise<Expense[]>;
-  createExpense(expense: InsertExpense): Promise<Expense>;
-  deleteExpense(id: number): Promise<boolean>;
+  getExpenses(userId: number): Promise<Expense[]>;
+  createExpense(userId: number, expense: InsertExpense): Promise<Expense>;
+  deleteExpense(id: number, userId: number): Promise<boolean>;
 
-  getSuppliers(): Promise<Supplier[]>;
-  createSupplier(supplier: InsertSupplier): Promise<Supplier>;
-  deleteSupplier(id: number): Promise<boolean>;
+  getSuppliers(userId: number): Promise<Supplier[]>;
+  createSupplier(userId: number, supplier: InsertSupplier): Promise<Supplier>;
+  deleteSupplier(id: number, userId: number): Promise<boolean>;
 
-  getPurchases(): Promise<Purchase[]>;
-  createPurchase(purchase: InsertPurchase): Promise<Purchase>;
-  deletePurchase(id: number): Promise<boolean>;
+  getPurchases(userId: number): Promise<Purchase[]>;
+  createPurchase(userId: number, purchase: InsertPurchase): Promise<Purchase>;
+  deletePurchase(id: number, userId: number): Promise<boolean>;
 
-  getCustomers(): Promise<Customer[]>;
-  getCustomer(id: number): Promise<Customer | undefined>;
-  createCustomer(customer: InsertCustomer): Promise<Customer>;
-  deleteCustomer(id: number): Promise<boolean>;
+  getCustomers(userId: number): Promise<Customer[]>;
+  getCustomer(id: number, userId: number): Promise<Customer | undefined>;
+  createCustomer(userId: number, customer: InsertCustomer): Promise<Customer>;
+  deleteCustomer(id: number, userId: number): Promise<boolean>;
 
-  getPayments(): Promise<Payment[]>;
-  getPaymentsByCustomer(customerId: number): Promise<Payment[]>;
-  createPayment(customerId: number, amount: number): Promise<Payment>;
-  deletePayment(id: number): Promise<boolean>;
+  getPayments(userId: number): Promise<Payment[]>;
+  getPaymentsByCustomer(customerId: number, userId: number): Promise<Payment[]>;
+  createPayment(userId: number, customerId: number, amount: number): Promise<Payment>;
+  deletePayment(id: number, userId: number): Promise<boolean>;
 
-  getInvestors(): Promise<Investor[]>;
-  createInvestor(investor: InsertInvestor): Promise<Investor>;
-  deleteInvestor(id: number): Promise<boolean>;
+  getInvestors(userId: number): Promise<Investor[]>;
+  createInvestor(userId: number, investor: InsertInvestor): Promise<Investor>;
+  deleteInvestor(id: number, userId: number): Promise<boolean>;
 
-  getSalesByCustomer(customerId: number): Promise<SaleWithItems[]>;
+  getSalesByCustomer(customerId: number, userId: number): Promise<SaleWithItems[]>;
 
-  getDashboardStats(): Promise<DashboardStats>;
+  getDashboardStats(userId: number): Promise<DashboardStats>;
 }
 
 async function attachItemsToSales(salesRows: Sale[]): Promise<SaleWithItems[]> {
   if (salesRows.length === 0) return [];
+  const saleIds = salesRows.map(s => s.id);
   const allItems = await db.select().from(saleItems);
   const itemsBySaleId = new Map<number, SaleItem[]>();
   for (const item of allItems) {
+    if (!saleIds.includes(item.saleId)) continue;
     const list = itemsBySaleId.get(item.saleId) || [];
     list.push(item);
     itemsBySaleId.set(item.saleId, list);
@@ -133,40 +144,60 @@ async function attachItemsToSales(salesRows: Sale[]): Promise<SaleWithItems[]> {
 }
 
 export class DatabaseStorage implements IStorage {
-  async getProducts(): Promise<Product[]> {
-    return db.select().from(products).orderBy(desc(products.createdAt));
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
-  async getProduct(id: number): Promise<Product | undefined> {
-    const [product] = await db.select().from(products).where(eq(products.id, id));
-    return product;
+  async getUserByGoogleId(googleId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.googleId, googleId));
+    return user;
   }
 
-  async getProductByCode(code: string): Promise<Product | undefined> {
-    const [product] = await db.select().from(products).where(eq(products.productCode, code));
-    return product;
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
   }
 
-  async createProduct(product: InsertProduct): Promise<Product> {
-    if (product.productCode) {
-      const existing = await this.getProductByCode(product.productCode);
-      if (existing) throw new Error("Product code already exists");
-    }
-    const [created] = await db.insert(products).values(product).returning();
+  async createUser(user: InsertUser): Promise<User> {
+    const [created] = await db.insert(users).values(user).returning();
     return created;
   }
 
-  async updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product | undefined> {
+  async getProducts(userId: number): Promise<Product[]> {
+    return db.select().from(products).where(eq(products.userId, userId)).orderBy(desc(products.createdAt));
+  }
+
+  async getProduct(id: number, userId: number): Promise<Product | undefined> {
+    const [product] = await db.select().from(products).where(and(eq(products.id, id), eq(products.userId, userId)));
+    return product;
+  }
+
+  async getProductByCode(code: string, userId: number): Promise<Product | undefined> {
+    const [product] = await db.select().from(products).where(and(eq(products.productCode, code), eq(products.userId, userId)));
+    return product;
+  }
+
+  async createProduct(userId: number, product: InsertProduct): Promise<Product> {
     if (product.productCode) {
-      const existing = await this.getProductByCode(product.productCode);
+      const existing = await this.getProductByCode(product.productCode, userId);
+      if (existing) throw new Error("Product code already exists");
+    }
+    const [created] = await db.insert(products).values({ ...product, userId }).returning();
+    return created;
+  }
+
+  async updateProduct(id: number, userId: number, product: Partial<InsertProduct>): Promise<Product | undefined> {
+    if (product.productCode) {
+      const existing = await this.getProductByCode(product.productCode, userId);
       if (existing && existing.id !== id) throw new Error("Product code already exists");
     }
-    const [updated] = await db.update(products).set(product).where(eq(products.id, id)).returning();
+    const [updated] = await db.update(products).set(product).where(and(eq(products.id, id), eq(products.userId, userId))).returning();
     return updated;
   }
 
-  async adjustStock(productId: number, adjustmentType: string, quantity: number, reason?: string): Promise<StockHistory> {
-    const [product] = await db.select().from(products).where(eq(products.id, productId));
+  async adjustStock(productId: number, userId: number, adjustmentType: string, quantity: number, reason?: string): Promise<StockHistory> {
+    const [product] = await db.select().from(products).where(and(eq(products.id, productId), eq(products.userId, userId)));
     if (!product) throw new Error("Product not found");
 
     const previousStock = product.stock;
@@ -203,13 +234,13 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(stockHistory).where(eq(stockHistory.productId, productId)).orderBy(desc(stockHistory.createdAt));
   }
 
-  async deleteProduct(id: number): Promise<boolean> {
-    const result = await db.delete(products).where(eq(products.id, id)).returning();
+  async deleteProduct(id: number, userId: number): Promise<boolean> {
+    const result = await db.delete(products).where(and(eq(products.id, id), eq(products.userId, userId))).returning();
     return result.length > 0;
   }
 
-  async getSales(): Promise<SaleWithItems[]> {
-    const salesRows = await db.select().from(sales).orderBy(desc(sales.createdAt));
+  async getSales(userId: number): Promise<SaleWithItems[]> {
+    const salesRows = await db.select().from(sales).where(eq(sales.userId, userId)).orderBy(desc(sales.createdAt));
     return attachItemsToSales(salesRows);
   }
 
@@ -219,7 +250,7 @@ export class DatabaseStorage implements IStorage {
       await client.query("BEGIN");
 
       for (const item of input.items) {
-        const prodResult = await client.query("SELECT * FROM products WHERE id = $1", [item.productId]);
+        const prodResult = await client.query("SELECT * FROM products WHERE id = $1 AND user_id = $2", [item.productId, input.userId]);
         if (prodResult.rows.length === 0) throw new Error(`Product not found: ${item.productName}`);
         const product = prodResult.rows[0];
         if (product.stock < item.quantity) throw new Error(`Insufficient stock for ${item.productName}`);
@@ -227,9 +258,9 @@ export class DatabaseStorage implements IStorage {
       }
 
       const saleResult = await client.query(
-        `INSERT INTO sales (total_price, customer_id, customer_name, customer_phone, customer_address, paid_amount, due_amount)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-        [input.totalAmount, input.customerId || null, input.customerName || null, input.customerPhone || null, input.customerAddress || null, input.paidAmount, input.dueAmount]
+        `INSERT INTO sales (user_id, total_price, customer_id, customer_name, customer_phone, customer_address, paid_amount, due_amount)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        [input.userId, input.totalAmount, input.customerId || null, input.customerName || null, input.customerPhone || null, input.customerAddress || null, input.paidAmount, input.dueAmount]
       );
       const saleRow = saleResult.rows[0];
       const saleId = saleRow.id;
@@ -262,6 +293,7 @@ export class DatabaseStorage implements IStorage {
 
       return {
         id: saleRow.id,
+        userId: saleRow.user_id,
         productId: saleRow.product_id,
         productName: saleRow.product_name,
         quantity: saleRow.quantity,
@@ -274,6 +306,9 @@ export class DatabaseStorage implements IStorage {
         customerAddress: saleRow.customer_address,
         paidAmount: saleRow.paid_amount,
         dueAmount: saleRow.due_amount,
+        courierStatus: saleRow.courier_status,
+        consignmentId: saleRow.consignment_id,
+        isSentToCourier: saleRow.is_sent_to_courier,
         createdAt: saleRow.created_at,
         items: insertedItems,
       };
@@ -285,12 +320,12 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async deleteSale(id: number): Promise<boolean> {
+  async deleteSale(id: number, userId: number): Promise<boolean> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
 
-      const saleResult = await client.query("SELECT * FROM sales WHERE id = $1", [id]);
+      const saleResult = await client.query("SELECT * FROM sales WHERE id = $1 AND user_id = $2", [id, userId]);
       if (saleResult.rows.length === 0) {
         await client.query("ROLLBACK");
         return false;
@@ -332,24 +367,24 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateSaleCourier(id: number, consignmentId: string, courierStatus: string): Promise<SaleWithItems | null> {
+  async updateSaleCourier(id: number, userId: number, consignmentId: string, courierStatus: string): Promise<SaleWithItems | null> {
     await db.update(sales).set({
       consignmentId,
       courierStatus,
       isSentToCourier: true,
-    }).where(eq(sales.id, id));
-    const allSales = await db.select().from(sales).where(eq(sales.id, id));
+    }).where(and(eq(sales.id, id), eq(sales.userId, userId)));
+    const allSales = await db.select().from(sales).where(and(eq(sales.id, id), eq(sales.userId, userId)));
     if (allSales.length === 0) return null;
     const items = await db.select().from(saleItems).where(eq(saleItems.saleId, id));
     return { ...allSales[0], items };
   }
 
-  async cancelCourierOrder(id: number): Promise<boolean> {
+  async cancelCourierOrder(id: number, userId: number): Promise<boolean> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
 
-      const saleResult = await client.query("SELECT * FROM sales WHERE id = $1", [id]);
+      const saleResult = await client.query("SELECT * FROM sales WHERE id = $1 AND user_id = $2", [id, userId]);
       if (saleResult.rows.length === 0) {
         await client.query("ROLLBACK");
         return false;
@@ -391,28 +426,28 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getCourierSales(): Promise<SaleWithItems[]> {
-    const courierSales = await db.select().from(sales).where(eq(sales.isSentToCourier, true)).orderBy(desc(sales.createdAt));
+  async getCourierSales(userId: number): Promise<SaleWithItems[]> {
+    const courierSales = await db.select().from(sales).where(and(eq(sales.isSentToCourier, true), eq(sales.userId, userId))).orderBy(desc(sales.createdAt));
     return attachItemsToSales(courierSales);
   }
 
-  async getSteadfastConfig(): Promise<SteadfastConfig | null> {
-    const rows = await db.select().from(steadfastConfig).orderBy(desc(steadfastConfig.id)).limit(1);
+  async getSteadfastConfig(userId: number): Promise<SteadfastConfig | null> {
+    const rows = await db.select().from(steadfastConfig).where(eq(steadfastConfig.userId, userId)).orderBy(desc(steadfastConfig.id)).limit(1);
     return rows.length > 0 ? rows[0] : null;
   }
 
-  async saveSteadfastConfig(apiKey: string, secretKey: string, baseUrl: string): Promise<SteadfastConfig> {
-    await db.delete(steadfastConfig);
-    const result = await db.insert(steadfastConfig).values({ apiKey, secretKey, baseUrl }).returning();
+  async saveSteadfastConfig(userId: number, apiKey: string, secretKey: string, baseUrl: string): Promise<SteadfastConfig> {
+    await db.delete(steadfastConfig).where(eq(steadfastConfig.userId, userId));
+    const result = await db.insert(steadfastConfig).values({ userId, apiKey, secretKey, baseUrl }).returning();
     return result[0];
   }
 
-  async updateSalePayment(id: number, paidAmount: number, dueAmount: number): Promise<SaleWithItems | null> {
+  async updateSalePayment(id: number, userId: number, paidAmount: number, dueAmount: number): Promise<SaleWithItems | null> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
 
-      const saleResult = await client.query("SELECT * FROM sales WHERE id = $1", [id]);
+      const saleResult = await client.query("SELECT * FROM sales WHERE id = $1 AND user_id = $2", [id, userId]);
       if (saleResult.rows.length === 0) {
         await client.query("ROLLBACK");
         return null;
@@ -452,6 +487,7 @@ export class DatabaseStorage implements IStorage {
 
       return {
         id: row.id,
+        userId: row.user_id,
         productId: row.product_id,
         productName: row.product_name,
         quantity: row.quantity,
@@ -464,6 +500,9 @@ export class DatabaseStorage implements IStorage {
         customerAddress: row.customer_address,
         paidAmount: row.paid_amount,
         dueAmount: row.due_amount,
+        courierStatus: row.courier_status,
+        consignmentId: row.consignment_id,
+        isSentToCourier: row.is_sent_to_courier,
         createdAt: row.created_at,
         items,
       };
@@ -475,50 +514,50 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getExpenses(): Promise<Expense[]> {
-    return db.select().from(expenses).orderBy(desc(expenses.createdAt));
+  async getExpenses(userId: number): Promise<Expense[]> {
+    return db.select().from(expenses).where(eq(expenses.userId, userId)).orderBy(desc(expenses.createdAt));
   }
 
-  async createExpense(expense: InsertExpense): Promise<Expense> {
-    const [created] = await db.insert(expenses).values(expense).returning();
+  async createExpense(userId: number, expense: InsertExpense): Promise<Expense> {
+    const [created] = await db.insert(expenses).values({ ...expense, userId }).returning();
     return created;
   }
 
-  async deleteExpense(id: number): Promise<boolean> {
-    const result = await db.delete(expenses).where(eq(expenses.id, id)).returning();
+  async deleteExpense(id: number, userId: number): Promise<boolean> {
+    const result = await db.delete(expenses).where(and(eq(expenses.id, id), eq(expenses.userId, userId))).returning();
     return result.length > 0;
   }
 
-  async getSuppliers(): Promise<Supplier[]> {
-    return db.select().from(suppliers).orderBy(desc(suppliers.createdAt));
+  async getSuppliers(userId: number): Promise<Supplier[]> {
+    return db.select().from(suppliers).where(eq(suppliers.userId, userId)).orderBy(desc(suppliers.createdAt));
   }
 
-  async createSupplier(supplier: InsertSupplier): Promise<Supplier> {
-    const [created] = await db.insert(suppliers).values(supplier).returning();
+  async createSupplier(userId: number, supplier: InsertSupplier): Promise<Supplier> {
+    const [created] = await db.insert(suppliers).values({ ...supplier, userId }).returning();
     return created;
   }
 
-  async deleteSupplier(id: number): Promise<boolean> {
-    const result = await db.delete(suppliers).where(eq(suppliers.id, id)).returning();
+  async deleteSupplier(id: number, userId: number): Promise<boolean> {
+    const result = await db.delete(suppliers).where(and(eq(suppliers.id, id), eq(suppliers.userId, userId))).returning();
     return result.length > 0;
   }
 
-  async getPurchases(): Promise<Purchase[]> {
-    return db.select().from(purchases).orderBy(desc(purchases.createdAt));
+  async getPurchases(userId: number): Promise<Purchase[]> {
+    return db.select().from(purchases).where(eq(purchases.userId, userId)).orderBy(desc(purchases.createdAt));
   }
 
-  async createPurchase(purchase: InsertPurchase): Promise<Purchase> {
+  async createPurchase(userId: number, purchase: InsertPurchase): Promise<Purchase> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
       const { drizzle } = await import("drizzle-orm/node-postgres");
       const txDb = drizzle(client);
 
-      const [product] = await txDb.select().from(products).where(eq(products.id, purchase.productId));
+      const [product] = await txDb.select().from(products).where(and(eq(products.id, purchase.productId), eq(products.userId, userId)));
       if (!product) throw new Error("Product not found");
 
       await txDb.update(products).set({ stock: product.stock + purchase.quantity }).where(eq(products.id, purchase.productId));
-      const [created] = await txDb.insert(purchases).values(purchase).returning();
+      const [created] = await txDb.insert(purchases).values({ ...purchase, userId }).returning();
 
       await client.query("COMMIT");
       return created;
@@ -530,12 +569,12 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async deletePurchase(id: number): Promise<boolean> {
+  async deletePurchase(id: number, userId: number): Promise<boolean> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
 
-      const purchaseResult = await client.query("SELECT * FROM purchases WHERE id = $1", [id]);
+      const purchaseResult = await client.query("SELECT * FROM purchases WHERE id = $1 AND user_id = $2", [id, userId]);
       if (purchaseResult.rows.length === 0) {
         await client.query("ROLLBACK");
         return false;
@@ -563,39 +602,39 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getCustomers(): Promise<Customer[]> {
-    return db.select().from(customers).orderBy(desc(customers.createdAt));
+  async getCustomers(userId: number): Promise<Customer[]> {
+    return db.select().from(customers).where(eq(customers.userId, userId)).orderBy(desc(customers.createdAt));
   }
 
-  async getCustomer(id: number): Promise<Customer | undefined> {
-    const [customer] = await db.select().from(customers).where(eq(customers.id, id));
+  async getCustomer(id: number, userId: number): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(and(eq(customers.id, id), eq(customers.userId, userId)));
     return customer;
   }
 
-  async createCustomer(customer: InsertCustomer): Promise<Customer> {
-    const [created] = await db.insert(customers).values(customer).returning();
+  async createCustomer(userId: number, customer: InsertCustomer): Promise<Customer> {
+    const [created] = await db.insert(customers).values({ ...customer, userId }).returning();
     return created;
   }
 
-  async deleteCustomer(id: number): Promise<boolean> {
-    const result = await db.delete(customers).where(eq(customers.id, id)).returning();
+  async deleteCustomer(id: number, userId: number): Promise<boolean> {
+    const result = await db.delete(customers).where(and(eq(customers.id, id), eq(customers.userId, userId))).returning();
     return result.length > 0;
   }
 
-  async getPayments(): Promise<Payment[]> {
-    return db.select().from(payments).orderBy(desc(payments.createdAt));
+  async getPayments(userId: number): Promise<Payment[]> {
+    return db.select().from(payments).where(eq(payments.userId, userId)).orderBy(desc(payments.createdAt));
   }
 
-  async getPaymentsByCustomer(customerId: number): Promise<Payment[]> {
-    return db.select().from(payments).where(eq(payments.customerId, customerId)).orderBy(desc(payments.createdAt));
+  async getPaymentsByCustomer(customerId: number, userId: number): Promise<Payment[]> {
+    return db.select().from(payments).where(and(eq(payments.customerId, customerId), eq(payments.userId, userId))).orderBy(desc(payments.createdAt));
   }
 
-  async createPayment(customerId: number, amount: number): Promise<Payment> {
+  async createPayment(userId: number, customerId: number, amount: number): Promise<Payment> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
 
-      const custResult = await client.query("SELECT * FROM customers WHERE id = $1", [customerId]);
+      const custResult = await client.query("SELECT * FROM customers WHERE id = $1 AND user_id = $2", [customerId, userId]);
       if (custResult.rows.length === 0) throw new Error("Customer not found");
       const customer = custResult.rows[0];
 
@@ -607,8 +646,8 @@ export class DatabaseStorage implements IStorage {
       );
 
       const payResult = await client.query(
-        "INSERT INTO payments (customer_id, customer_name, amount) VALUES ($1, $2, $3) RETURNING *",
-        [customerId, customer.name, amount]
+        "INSERT INTO payments (user_id, customer_id, customer_name, amount) VALUES ($1, $2, $3, $4) RETURNING *",
+        [userId, customerId, customer.name, amount]
       );
 
       await client.query("COMMIT");
@@ -616,6 +655,7 @@ export class DatabaseStorage implements IStorage {
       const row = payResult.rows[0];
       return {
         id: row.id,
+        userId: row.user_id,
         customerId: row.customer_id,
         customerName: row.customer_name,
         amount: row.amount,
@@ -629,12 +669,12 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async deletePayment(id: number): Promise<boolean> {
+  async deletePayment(id: number, userId: number): Promise<boolean> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
 
-      const payResult = await client.query("SELECT * FROM payments WHERE id = $1", [id]);
+      const payResult = await client.query("SELECT * FROM payments WHERE id = $1 AND user_id = $2", [id, userId]);
       if (payResult.rows.length === 0) {
         await client.query("ROLLBACK");
         return false;
@@ -658,31 +698,32 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getInvestors(): Promise<Investor[]> {
-    return db.select().from(investors).orderBy(desc(investors.createdAt));
+  async getInvestors(userId: number): Promise<Investor[]> {
+    return db.select().from(investors).where(eq(investors.userId, userId)).orderBy(desc(investors.createdAt));
   }
 
-  async createInvestor(investor: InsertInvestor): Promise<Investor> {
-    const [created] = await db.insert(investors).values(investor).returning();
+  async createInvestor(userId: number, investor: InsertInvestor): Promise<Investor> {
+    const [created] = await db.insert(investors).values({ ...investor, userId }).returning();
     return created;
   }
 
-  async deleteInvestor(id: number): Promise<boolean> {
-    const result = await db.delete(investors).where(eq(investors.id, id)).returning();
+  async deleteInvestor(id: number, userId: number): Promise<boolean> {
+    const result = await db.delete(investors).where(and(eq(investors.id, id), eq(investors.userId, userId))).returning();
     return result.length > 0;
   }
 
-  async getSalesByCustomer(customerId: number): Promise<SaleWithItems[]> {
-    const salesRows = await db.select().from(sales).where(eq(sales.customerId, customerId)).orderBy(desc(sales.createdAt));
+  async getSalesByCustomer(customerId: number, userId: number): Promise<SaleWithItems[]> {
+    const salesRows = await db.select().from(sales).where(and(eq(sales.customerId, customerId), eq(sales.userId, userId))).orderBy(desc(sales.createdAt));
     return attachItemsToSales(salesRows);
   }
 
-  async getDashboardStats(): Promise<DashboardStats> {
-    const allProducts = await db.select().from(products);
-    const allSales = await db.select().from(sales);
-    const allItems = await db.select().from(saleItems);
-    const allExpenses = await db.select().from(expenses);
-    const allInvestors = await db.select().from(investors);
+  async getDashboardStats(userId: number): Promise<DashboardStats> {
+    const allProducts = await db.select().from(products).where(eq(products.userId, userId));
+    const allSales = await db.select().from(sales).where(eq(sales.userId, userId));
+    const saleIds = allSales.map(s => s.id);
+    const allItems = saleIds.length > 0 ? (await db.select().from(saleItems)).filter(i => saleIds.includes(i.saleId)) : [];
+    const allExpenses = await db.select().from(expenses).where(eq(expenses.userId, userId));
+    const allInvestors = await db.select().from(investors).where(eq(investors.userId, userId));
 
     const totalSales = allSales.reduce((sum, s) => sum + s.totalPrice, 0);
     const itemSaleIds = new Set(allItems.map((i) => i.saleId));
@@ -701,7 +742,7 @@ export class DatabaseStorage implements IStorage {
     const totalAllInvestment = allInvestors.reduce((sum, i) => sum + i.investedAmount, 0);
     const availableWorkingCapital = totalAllInvestment - totalExpenses;
 
-    const allPurchases = await db.select().from(purchases);
+    const allPurchases = await db.select().from(purchases).where(eq(purchases.userId, userId));
     const totalPaidFromSales = allSales.reduce((sum, s) => sum + (s.paidAmount ?? s.totalPrice), 0);
     const cashInvestorAmount = allInvestors
       .filter((i) => i.investmentType === "cash")

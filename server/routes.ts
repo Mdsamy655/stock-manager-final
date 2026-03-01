@@ -6,6 +6,8 @@ import { sales, insertProductSchema, insertExpenseSchema, insertSupplierSchema, 
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { createSteadfastOrder, checkSteadfastStatus } from "./steadfast";
+import { authMiddleware, generateToken, type AuthUser } from "./auth";
+import { OAuth2Client } from "google-auth-library";
 
 const saleItemSchema = z.object({
   productId: z.coerce.number().int().positive(),
@@ -30,18 +32,63 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
-  app.get("/api/dashboard", async (_req, res) => {
+  app.post("/api/auth/google", async (req, res) => {
     try {
-      const stats = await storage.getDashboardStats();
+      const { credential, clientId } = req.body;
+      if (!credential || !clientId) {
+        return res.status(400).json({ message: "Missing credential or clientId" });
+      }
+
+      const client = new OAuth2Client(clientId);
+      const ticket = await client.verifyIdToken({
+        idToken: credential,
+        audience: clientId,
+      });
+      const payload = ticket.getPayload();
+      if (!payload || !payload.email || !payload.sub) {
+        return res.status(400).json({ message: "Invalid Google token" });
+      }
+
+      let user = await storage.getUserByGoogleId(payload.sub);
+      if (!user) {
+        user = await storage.createUser({
+          name: payload.name || payload.email,
+          email: payload.email,
+          googleId: payload.sub,
+        });
+      }
+
+      const token = generateToken({ id: user.id, email: user.email, name: user.name });
+      res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
+    } catch (error: any) {
+      console.error("Google auth error:", error.message);
+      res.status(401).json({ message: "Authentication failed" });
+    }
+  });
+
+  app.get("/api/auth/me", authMiddleware, async (req, res) => {
+    const user = await storage.getUser(req.user!.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json({ id: user.id, name: user.name, email: user.email });
+  });
+
+  app.use("/api", (req, res, next) => {
+    if (req.path === "/auth/google" || req.path === "/auth/me") return next();
+    authMiddleware(req, res, next);
+  });
+
+  app.get("/api/dashboard", async (req, res) => {
+    try {
+      const stats = await storage.getDashboardStats(req.user!.id);
       res.json(stats);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
   });
 
-  app.get("/api/products", async (_req, res) => {
+  app.get("/api/products", async (req, res) => {
     try {
-      const products = await storage.getProducts();
+      const products = await storage.getProducts(req.user!.id);
       res.json(products);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -50,7 +97,7 @@ export async function registerRoutes(
 
   app.get("/api/products/code/:code", async (req, res) => {
     try {
-      const product = await storage.getProductByCode(req.params.code);
+      const product = await storage.getProductByCode(req.params.code, req.user!.id);
       if (!product) return res.status(404).json({ message: "Product not found" });
       res.json(product);
     } catch (error: any) {
@@ -64,7 +111,7 @@ export async function registerRoutes(
       if (!parsed.productCode || parsed.productCode.trim() === "") {
         return res.status(400).json({ message: "Product code is required" });
       }
-      const product = await storage.createProduct(parsed);
+      const product = await storage.createProduct(req.user!.id, parsed);
       res.status(201).json(product);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -75,7 +122,7 @@ export async function registerRoutes(
     try {
       const id = parseInt(req.params.id);
       const parsed = updateProductSchema.parse(req.body);
-      const product = await storage.updateProduct(id, parsed);
+      const product = await storage.updateProduct(id, req.user!.id, parsed);
       if (!product) return res.status(404).json({ message: "Product not found" });
       res.json(product);
     } catch (error: any) {
@@ -93,7 +140,7 @@ export async function registerRoutes(
       if (typeof quantity !== "number" || quantity < 0) {
         return res.status(400).json({ message: "Quantity must be a non-negative number" });
       }
-      const record = await storage.adjustStock(productId, adjustmentType, quantity, reason);
+      const record = await storage.adjustStock(productId, req.user!.id, adjustmentType, quantity, reason);
       res.json(record);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -113,7 +160,7 @@ export async function registerRoutes(
   app.delete("/api/products/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const deleted = await storage.deleteProduct(id);
+      const deleted = await storage.deleteProduct(id, req.user!.id);
       if (!deleted) return res.status(404).json({ message: "Product not found" });
       res.json({ success: true });
     } catch (error: any) {
@@ -121,9 +168,9 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/sales", async (_req, res) => {
+  app.get("/api/sales", async (req, res) => {
     try {
-      const salesList = await storage.getSales();
+      const salesList = await storage.getSales(req.user!.id);
       res.json(salesList);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -132,6 +179,7 @@ export async function registerRoutes(
 
   app.post("/api/sales", async (req, res) => {
     try {
+      const userId = req.user!.id;
       const { items, customerId, customerName: newCustomerName, customerPhone, customerAddress, saveToCustomerList, paidAmount } = saleRequestSchema.parse(req.body);
 
       const resolvedItems: Array<{
@@ -144,7 +192,7 @@ export async function registerRoutes(
       }> = [];
 
       for (const item of items) {
-        const product = await storage.getProduct(item.productId);
+        const product = await storage.getProduct(item.productId, userId);
         if (!product) return res.status(404).json({ message: `Product not found (ID: ${item.productId})` });
         if (product.stock < item.quantity) return res.status(400).json({ message: `Insufficient stock for ${product.name}` });
         const saleUnitPrice = item.unitPrice !== undefined ? item.unitPrice : product.salePrice;
@@ -168,7 +216,7 @@ export async function registerRoutes(
       let resolvedCustomerAddress: string | null = customerAddress || null;
 
       if (customerId) {
-        const customer = await storage.getCustomer(customerId);
+        const customer = await storage.getCustomer(customerId, userId);
         if (!customer) return res.status(404).json({ message: "Customer not found" });
         resolvedCustomerName = customer.name;
         resolvedCustomerPhone = customer.phone || resolvedCustomerPhone;
@@ -176,7 +224,7 @@ export async function registerRoutes(
       } else if (newCustomerName && newCustomerName.trim()) {
         resolvedCustomerName = newCustomerName.trim();
         if (saveToCustomerList) {
-          const newCustomer = await storage.createCustomer({
+          const newCustomer = await storage.createCustomer(userId, {
             name: resolvedCustomerName,
             phone: resolvedCustomerPhone,
             address: resolvedCustomerAddress,
@@ -191,6 +239,7 @@ export async function registerRoutes(
       }
 
       const sale = await storage.createSale({
+        userId,
         customerId: resolvedCustomerId,
         customerName: resolvedCustomerName,
         customerPhone: resolvedCustomerPhone,
@@ -214,7 +263,7 @@ export async function registerRoutes(
         paidAmount: z.coerce.number().min(0),
         dueAmount: z.coerce.number().min(0),
       }).parse(req.body);
-      const updated = await storage.updateSalePayment(id, paidAmount, dueAmount);
+      const updated = await storage.updateSalePayment(id, req.user!.id, paidAmount, dueAmount);
       if (!updated) return res.status(404).json({ message: "Sale not found" });
       res.json(updated);
     } catch (error: any) {
@@ -225,7 +274,7 @@ export async function registerRoutes(
   app.delete("/api/sales/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const deleted = await storage.deleteSale(id);
+      const deleted = await storage.deleteSale(id, req.user!.id);
       if (!deleted) return res.status(404).json({ message: "Sale not found" });
       res.json({ success: true });
     } catch (error: any) {
@@ -233,9 +282,9 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/expenses", async (_req, res) => {
+  app.get("/api/expenses", async (req, res) => {
     try {
-      const expensesList = await storage.getExpenses();
+      const expensesList = await storage.getExpenses(req.user!.id);
       res.json(expensesList);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -245,7 +294,7 @@ export async function registerRoutes(
   app.post("/api/expenses", async (req, res) => {
     try {
       const parsed = insertExpenseSchema.parse(req.body);
-      const expense = await storage.createExpense(parsed);
+      const expense = await storage.createExpense(req.user!.id, parsed);
       res.status(201).json(expense);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -255,7 +304,7 @@ export async function registerRoutes(
   app.delete("/api/expenses/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const deleted = await storage.deleteExpense(id);
+      const deleted = await storage.deleteExpense(id, req.user!.id);
       if (!deleted) return res.status(404).json({ message: "Expense not found" });
       res.json({ success: true });
     } catch (error: any) {
@@ -263,9 +312,9 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/suppliers", async (_req, res) => {
+  app.get("/api/suppliers", async (req, res) => {
     try {
-      const suppliersList = await storage.getSuppliers();
+      const suppliersList = await storage.getSuppliers(req.user!.id);
       res.json(suppliersList);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -275,7 +324,7 @@ export async function registerRoutes(
   app.post("/api/suppliers", async (req, res) => {
     try {
       const parsed = insertSupplierSchema.parse(req.body);
-      const supplier = await storage.createSupplier(parsed);
+      const supplier = await storage.createSupplier(req.user!.id, parsed);
       res.status(201).json(supplier);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -285,7 +334,7 @@ export async function registerRoutes(
   app.delete("/api/suppliers/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const deleted = await storage.deleteSupplier(id);
+      const deleted = await storage.deleteSupplier(id, req.user!.id);
       if (!deleted) return res.status(404).json({ message: "Supplier not found" });
       res.json({ success: true });
     } catch (error: any) {
@@ -293,9 +342,9 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/purchases", async (_req, res) => {
+  app.get("/api/purchases", async (req, res) => {
     try {
-      const purchasesList = await storage.getPurchases();
+      const purchasesList = await storage.getPurchases(req.user!.id);
       res.json(purchasesList);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -304,18 +353,19 @@ export async function registerRoutes(
 
   app.post("/api/purchases", async (req, res) => {
     try {
+      const userId = req.user!.id;
       const { productId, supplierId, quantity } = req.body;
-      const product = await storage.getProduct(productId);
+      const product = await storage.getProduct(productId, userId);
       if (!product) return res.status(404).json({ message: "Product not found" });
 
       let supplierName: string | null = null;
       if (supplierId) {
-        const suppliersList = await storage.getSuppliers();
+        const suppliersList = await storage.getSuppliers(userId);
         const supplier = suppliersList.find(s => s.id === supplierId);
         supplierName = supplier?.name ?? null;
       }
 
-      const purchase = await storage.createPurchase({
+      const purchase = await storage.createPurchase(userId, {
         productId,
         productName: product.name,
         supplierId: supplierId || null,
@@ -333,7 +383,7 @@ export async function registerRoutes(
   app.delete("/api/purchases/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const deleted = await storage.deletePurchase(id);
+      const deleted = await storage.deletePurchase(id, req.user!.id);
       if (!deleted) return res.status(404).json({ message: "Purchase not found" });
       res.json({ success: true });
     } catch (error: any) {
@@ -341,9 +391,9 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/customers", async (_req, res) => {
+  app.get("/api/customers", async (req, res) => {
     try {
-      const customersList = await storage.getCustomers();
+      const customersList = await storage.getCustomers(req.user!.id);
       res.json(customersList);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -352,12 +402,13 @@ export async function registerRoutes(
 
   app.get("/api/customers/:id", async (req, res) => {
     try {
+      const userId = req.user!.id;
       const id = parseInt(req.params.id);
-      const customer = await storage.getCustomer(id);
+      const customer = await storage.getCustomer(id, userId);
       if (!customer) return res.status(404).json({ message: "Customer not found" });
 
-      const customerSales = await storage.getSalesByCustomer(id);
-      const customerPayments = await storage.getPaymentsByCustomer(id);
+      const customerSales = await storage.getSalesByCustomer(id, userId);
+      const customerPayments = await storage.getPaymentsByCustomer(id, userId);
 
       const totalSales = customerSales.reduce((sum, s) => sum + s.totalPrice, 0);
       const totalPaid = customerSales.reduce((sum, s) => sum + s.paidAmount, 0) +
@@ -379,7 +430,7 @@ export async function registerRoutes(
   app.post("/api/customers", async (req, res) => {
     try {
       const parsed = insertCustomerSchema.parse(req.body);
-      const customer = await storage.createCustomer(parsed);
+      const customer = await storage.createCustomer(req.user!.id, parsed);
       res.status(201).json(customer);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -389,7 +440,7 @@ export async function registerRoutes(
   app.delete("/api/customers/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const deleted = await storage.deleteCustomer(id);
+      const deleted = await storage.deleteCustomer(id, req.user!.id);
       if (!deleted) return res.status(404).json({ message: "Customer not found" });
       res.json({ success: true });
     } catch (error: any) {
@@ -397,9 +448,9 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/payments", async (_req, res) => {
+  app.get("/api/payments", async (req, res) => {
     try {
-      const paymentsList = await storage.getPayments();
+      const paymentsList = await storage.getPayments(req.user!.id);
       res.json(paymentsList);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -413,7 +464,7 @@ export async function registerRoutes(
         amount: z.coerce.number().positive(),
       }).parse(req.body);
 
-      const payment = await storage.createPayment(customerId, amount);
+      const payment = await storage.createPayment(req.user!.id, customerId, amount);
       res.status(201).json(payment);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -423,7 +474,7 @@ export async function registerRoutes(
   app.delete("/api/payments/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const deleted = await storage.deletePayment(id);
+      const deleted = await storage.deletePayment(id, req.user!.id);
       if (!deleted) return res.status(404).json({ message: "Payment not found" });
       res.json({ success: true });
     } catch (error: any) {
@@ -431,9 +482,9 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/investors", async (_req, res) => {
+  app.get("/api/investors", async (req, res) => {
     try {
-      const investorsList = await storage.getInvestors();
+      const investorsList = await storage.getInvestors(req.user!.id);
       res.json(investorsList);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -443,7 +494,7 @@ export async function registerRoutes(
   app.post("/api/investors", async (req, res) => {
     try {
       const parsed = insertInvestorSchema.parse(req.body);
-      const investor = await storage.createInvestor(parsed);
+      const investor = await storage.createInvestor(req.user!.id, parsed);
       res.status(201).json(investor);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -453,7 +504,7 @@ export async function registerRoutes(
   app.delete("/api/investors/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const deleted = await storage.deleteInvestor(id);
+      const deleted = await storage.deleteInvestor(id, req.user!.id);
       if (!deleted) return res.status(404).json({ message: "Investor not found" });
       res.json({ success: true });
     } catch (error: any) {
@@ -461,9 +512,9 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/steadfast-config", async (_req, res) => {
+  app.get("/api/steadfast-config", async (req, res) => {
     try {
-      const config = await storage.getSteadfastConfig();
+      const config = await storage.getSteadfastConfig(req.user!.id);
       if (config) {
         res.json({ apiKey: config.apiKey, secretKey: config.secretKey, baseUrl: config.baseUrl });
       } else {
@@ -480,16 +531,16 @@ export async function registerRoutes(
       if (!apiKey || !secretKey || !baseUrl) {
         return res.status(400).json({ message: "API Key, Secret Key, and Base URL are required" });
       }
-      const config = await storage.saveSteadfastConfig(apiKey, secretKey, baseUrl);
+      const config = await storage.saveSteadfastConfig(req.user!.id, apiKey, secretKey, baseUrl);
       res.json({ apiKey: config.apiKey, secretKey: config.secretKey, baseUrl: config.baseUrl });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
   });
 
-  app.get("/api/courier-sales", async (_req, res) => {
+  app.get("/api/courier-sales", async (req, res) => {
     try {
-      const courierSales = await storage.getCourierSales();
+      const courierSales = await storage.getCourierSales(req.user!.id);
       res.json(courierSales);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -498,11 +549,12 @@ export async function registerRoutes(
 
   app.post("/api/steadfast/send/:id", async (req, res) => {
     try {
-      const config = await storage.getSteadfastConfig();
+      const userId = req.user!.id;
+      const config = await storage.getSteadfastConfig(userId);
       if (!config) return res.status(400).json({ message: "Steadfast API not configured. Please add your API credentials in Settings." });
 
       const id = parseInt(req.params.id);
-      const allSales = await storage.getSales();
+      const allSales = await storage.getSales(userId);
       const sale = allSales.find((s) => s.id === id);
       if (!sale) return res.status(404).json({ message: "Sale not found" });
       if (sale.isSentToCourier) return res.status(400).json({ message: "Already sent to courier" });
@@ -513,7 +565,7 @@ export async function registerRoutes(
       const codAmount = req.body?.amount !== undefined ? Number(req.body.amount) : sale.totalPrice;
       const saleWithAmount = { ...sale, totalPrice: codAmount };
       const result = await createSteadfastOrder(config, saleWithAmount);
-      const updated = await storage.updateSaleCourier(id, result.consignment_id, "pending");
+      const updated = await storage.updateSaleCourier(id, userId, result.consignment_id, "pending");
       res.json(updated);
     } catch (error: any) {
       console.log("Steadfast send error:", error.message);
@@ -523,8 +575,9 @@ export async function registerRoutes(
 
   app.delete("/api/steadfast/order/:id", async (req, res) => {
     try {
+      const userId = req.user!.id;
       const id = parseInt(req.params.id);
-      const allSales = await storage.getSales();
+      const allSales = await storage.getSales(userId);
       const sale = allSales.find((s) => s.id === id);
       if (!sale) return res.status(404).json({ message: "Sale not found" });
       if (!sale.isSentToCourier) return res.status(400).json({ message: "This sale is not a courier order" });
@@ -546,21 +599,22 @@ export async function registerRoutes(
 
   app.post("/api/steadfast/status/:id", async (req, res) => {
     try {
-      const config = await storage.getSteadfastConfig();
+      const userId = req.user!.id;
+      const config = await storage.getSteadfastConfig(userId);
       if (!config) return res.status(400).json({ message: "Steadfast API not configured." });
 
       const id = parseInt(req.params.id);
-      const allSales = await storage.getSales();
+      const allSales = await storage.getSales(userId);
       const sale = allSales.find((s) => s.id === id);
       if (!sale) return res.status(404).json({ message: "Sale not found" });
       if (!sale.consignmentId) return res.status(400).json({ message: "No consignment ID found" });
 
       const result = await checkSteadfastStatus(config, sale.consignmentId);
-      await storage.updateSaleCourier(id, sale.consignmentId, result.delivery_status);
+      await storage.updateSaleCourier(id, userId, sale.consignmentId, result.delivery_status);
       if (result.delivery_status === "delivered" && sale.courierStatus !== "delivered") {
-        await storage.updateSalePayment(id, sale.totalPrice, 0);
+        await storage.updateSalePayment(id, userId, sale.totalPrice, 0);
       }
-      const updated = await storage.getCourierSales();
+      const updated = await storage.getCourierSales(userId);
       const updatedSale = updated.find((s) => s.id === id);
       res.json(updatedSale);
     } catch (error: any) {

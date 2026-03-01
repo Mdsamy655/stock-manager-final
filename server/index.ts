@@ -2,11 +2,11 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
-import { eq } from "drizzle-orm";
+import { eq, and, isNotNull } from "drizzle-orm";
 
 import { checkSteadfastStatus } from "./steadfast";
 import { db } from "./db";
-import { sales } from "@shared/schema";
+import { sales, steadfastConfig } from "@shared/schema";
 const app = express();
 const httpServer = createServer(app);
 
@@ -89,9 +89,6 @@ process.on("unhandledRejection", (reason) => {
     return res.status(status).json({ message });
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
   if (process.env.NODE_ENV === "production") {
     serveStatic(app);
   } else {
@@ -99,10 +96,6 @@ process.on("unhandledRejection", (reason) => {
     await setupVite(httpServer, app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5000", 10);
   httpServer.listen(
     {
@@ -112,53 +105,42 @@ process.on("unhandledRejection", (reason) => {
     },
     () => {
       log(`serving on port ${port}`);
+
+      setInterval(async () => {
+        try {
+          const configs = await db.select().from(steadfastConfig);
+          if (configs.length === 0) return;
+
+          for (const config of configs) {
+            const orders = await db.select().from(sales).where(
+              and(
+                eq(sales.userId, config.userId),
+                eq(sales.isSentToCourier, true),
+                isNotNull(sales.consignmentId)
+              )
+            );
+
+            for (const order of orders) {
+              if (!order.consignmentId) continue;
+              if (order.courierStatus === "delivered" || order.courierStatus === "cancelled") continue;
+
+              try {
+                const data = await checkSteadfastStatus(config, order.consignmentId);
+                if (!data?.delivery_status) continue;
+
+                await db
+                  .update(sales)
+                  .set({ courierStatus: data.delivery_status })
+                  .where(eq(sales.id, order.id));
+              } catch (err) {
+                console.log("Status check failed for order", order.id);
+              }
+            }
+          }
+        } catch (err) {
+          console.log("Auto status sync error:", err);
+        }
+      }, 30 * 60 * 1000);
     },
   );
 })();
-
-httpServer.listen(
-  {
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  },
-  () => {
-    log(`serving on port ${port}`);
-
-    // 👇 এখানেই বসাও
-    setInterval(
-      async () => {
-        console.log("Auto checking Steadfast status...");
-
-        const config = {
-          apiKey: process.env.STEADFAST_API_KEY!,
-          secretKey: process.env.STEADFAST_SECRET_KEY!,
-          baseUrl: "https://portal.packzy.com/api/v1",
-        };
-
-        const orders = await db.select().from(sales);
-
-        for (const order of orders) {
-          if (!order.consignmentId) continue;
-
-          try {
-            const data = await checkSteadfastStatus(
-              config,
-              order.consignmentId,
-            );
-
-            if (!data?.delivery_status) continue;
-
-            await db
-              .update(sales)
-              .set({ courierStatus: data.delivery_status })
-              .where(eq(sales.id, order.id));
-          } catch (err) {
-            console.log("Status check failed");
-          }
-        }
-      },
-      30 * 60 * 1000,
-    ); // ৩০ মিনিট
-  },
-);

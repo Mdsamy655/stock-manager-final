@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, ShoppingCart, Receipt, PackagePlus, Users, Banknote, Landmark, Truck } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, Receipt, PackagePlus, Users, Banknote, Landmark, Truck, LogOut } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -10,7 +10,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
+  SidebarFooter,
 } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
 
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -24,7 +26,13 @@ const navItems = [
   { title: "Steadfast", url: "/steadfast", icon: Truck },
 ];
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  userName?: string;
+  userEmail?: string;
+  onLogout?: () => void;
+}
+
+export function AppSidebar({ userName, userEmail, onLogout }: AppSidebarProps) {
   const [location] = useLocation();
 
   return (
@@ -63,6 +71,27 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      {userName && (
+        <SidebarFooter className="p-4 border-t">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-sm font-medium truncate" data-testid="text-user-name">{userName}</p>
+              <p className="text-xs text-muted-foreground truncate" data-testid="text-user-email">{userEmail}</p>
+            </div>
+            {onLogout && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onLogout}
+                className="shrink-0"
+                data-testid="button-logout"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </SidebarFooter>
+      )}
     </Sidebar>
   );
 }

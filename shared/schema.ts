@@ -12,8 +12,17 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  googleId: text("google_id").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
   name: text("name").notNull(),
   productCode: text("product_code").notNull().default(""),
   costPrice: real("cost_price").notNull(),
@@ -24,6 +33,7 @@ export const products = pgTable("products", {
 
 export const sales = pgTable("sales", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
   productId: integer("product_id"),
   productName: text("product_name"),
   quantity: integer("quantity"),
@@ -55,6 +65,7 @@ export const saleItems = pgTable("sale_items", {
 
 export const expenses = pgTable("expenses", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
   description: text("description").notNull(),
   amount: real("amount").notNull(),
   category: text("category").notNull(),
@@ -63,6 +74,7 @@ export const expenses = pgTable("expenses", {
 
 export const suppliers = pgTable("suppliers", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
   name: text("name").notNull(),
   phone: text("phone").notNull(),
   address: text("address").notNull(),
@@ -72,6 +84,7 @@ export const suppliers = pgTable("suppliers", {
 
 export const purchases = pgTable("purchases", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
   productId: integer("product_id").notNull(),
   productName: text("product_name").notNull(),
   supplierId: integer("supplier_id"),
@@ -84,6 +97,7 @@ export const purchases = pgTable("purchases", {
 
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
   name: text("name").notNull(),
   phone: text("phone"),
   address: text("address"),
@@ -93,6 +107,7 @@ export const customers = pgTable("customers", {
 
 export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
   customerId: integer("customer_id").notNull(),
   customerName: text("customer_name").notNull(),
   amount: real("amount").notNull(),
@@ -101,6 +116,7 @@ export const payments = pgTable("payments", {
 
 export const investors = pgTable("investors", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
   name: text("name").notNull(),
   investedAmount: real("invested_amount").notNull(),
   investmentType: text("investment_type").notNull(),
@@ -121,19 +137,26 @@ export const stockHistory = pgTable("stock_history", {
 
 export const steadfastConfig = pgTable("steadfast_config", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
   apiKey: text("api_key").notNull(),
   secretKey: text("secret_key").notNull(),
   baseUrl: text("base_url").notNull().default("https://portal.packzy.com/api/v1"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+});
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
   createdAt: true,
+  userId: true,
 });
 export const insertSaleSchema = createInsertSchema(sales).omit({
   id: true,
   createdAt: true,
+  userId: true,
 });
 export const insertSaleItemSchema = createInsertSchema(saleItems).omit({
   id: true,
@@ -141,28 +164,36 @@ export const insertSaleItemSchema = createInsertSchema(saleItems).omit({
 export const insertExpenseSchema = createInsertSchema(expenses).omit({
   id: true,
   createdAt: true,
+  userId: true,
 });
 export const insertSupplierSchema = createInsertSchema(suppliers).omit({
   id: true,
   createdAt: true,
+  userId: true,
 });
 export const insertPurchaseSchema = createInsertSchema(purchases).omit({
   id: true,
   createdAt: true,
+  userId: true,
 });
 export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
   createdAt: true,
+  userId: true,
 });
 export const insertPaymentSchema = createInsertSchema(payments).omit({
   id: true,
   createdAt: true,
+  userId: true,
 });
 export const insertInvestorSchema = createInsertSchema(investors).omit({
   id: true,
   createdAt: true,
+  userId: true,
 });
 
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type User = typeof users.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
 export type InsertSale = z.infer<typeof insertSaleSchema>;
