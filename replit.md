@@ -1,15 +1,17 @@
 # InventoryPro - Inventory Management System
 
 ## Overview
-A professional inventory management system built with Node.js, Express, React, and PostgreSQL. Features product management, multi-product invoice sales, expense recording, customer due management, payment tracking, investor management, and a comprehensive dashboard with business analytics. All monetary values are displayed in Bangladeshi Taka (৳).
+A professional inventory management system built with Node.js, Express, React, and PostgreSQL. Features product management, multi-product invoice sales, expense recording, customer due management, payment tracking, investor management, and a comprehensive dashboard with business analytics. All monetary values are displayed in Bangladeshi Taka (৳). Multi-user support with JWT-based authentication and per-user data isolation.
 
 ## Architecture
 - **Frontend:** React + TypeScript with Shadcn UI components, TanStack Query, Wouter routing
-- **Backend:** Express.js API server
+- **Backend:** Express.js API server with JWT auth middleware
 - **Database:** PostgreSQL with Drizzle ORM
 - **Styling:** Tailwind CSS with Shadcn design system
+- **Auth:** Email/password registration & login with bcrypt + JWT; Google OAuth ready (endpoint exists at `/api/auth/google`)
 
 ## Key Features
+- **Authentication:** Email/password register/login with JWT tokens (30-day expiry); Google OAuth endpoint ready for future activation; all data isolated per user via `user_id` foreign keys
 - **Dashboard:** Total Sales, Investment, Stock Value, Expenses, Profit, Cash In Hand, Low Stock Alerts, Working Capital, Daily & Monthly Sales/Profit summaries, COD Summary (Pending/Delivered/Returned/Total COD from courier orders)
 - **Products:** Add/delete products with cost price, sale price, stock tracking, and manual stock adjustment (Add/Reduce/Set Exact with history logging)
 - **Sales:** Invoice-style multi-product sales with automatic stock reduction per item, editable sale price per line item (pre-filled from default, supports custom pricing above/below default including loss), optional customer assignment, partial payment with due tracking
@@ -23,53 +25,64 @@ A professional inventory management system built with Node.js, Express, React, a
 - **Invoice System:** Generate printable/downloadable PDF invoices for any sale, with customizable company name/address, optional delivery charge (invoice-only, doesn't affect profit/stock/dashboard), print and PDF download buttons, editable payment status (Fully Paid/Fully Due/Partial Payment) that saves to database and updates customer due amounts
 
 ## Data Model
-- `products` - name, productCode (unique barcode/QR code), costPrice, salePrice, stock (manual adjustment via Adjust Stock modal)
+- `users` - name, email (unique), password (bcrypt hash), googleId (nullable, for future Google OAuth)
+- `products` - userId, name, productCode (unique per user), costPrice, salePrice, stock
 - `stock_history` - productId, previousStock, newStock, changeAmount, reason, createdAt
-- `sales` - totalPrice, customerId, customerName, customerPhone, customerAddress, paidAmount, dueAmount, courierStatus, consignmentId, isSentToCourier (legacy nullable fields: productId, productName, quantity, unitPrice, costPrice)
+- `sales` - userId, totalPrice, customerId, customerName, customerPhone, customerAddress, paidAmount, dueAmount, courierStatus, consignmentId, isSentToCourier
 - `sale_items` - saleId, productId, productName, quantity, unitPrice, costPrice, totalPrice
-- `expenses` - description, amount, category
-- `suppliers` - name, phone, address, dueAmount (table kept but hidden from UI)
-- `purchases` - productId, productName, supplierId, supplierName, quantity, unitCost, totalCost
-- `customers` - name, phone, address, dueAmount
-- `payments` - customerId, customerName, amount
-- `investors` - name, investedAmount, investmentType (cash/product), productId (nullable), isPermanent (boolean, legacy - always false for new records)
-- `steadfast_config` - id, apiKey, secretKey, baseUrl, createdAt (single row, replaced on save)
+- `expenses` - userId, description, amount, category
+- `suppliers` - userId, name, phone, address, dueAmount (table kept but hidden from UI)
+- `purchases` - userId, productId, productName, supplierId, supplierName, quantity, unitCost, totalCost
+- `customers` - userId, name, phone, address, dueAmount
+- `payments` - userId, customerId, customerName, amount
+- `investors` - userId, name, investedAmount, investmentType (cash/product), productId (nullable), isPermanent
+- `steadfast_config` - userId, apiKey, secretKey, baseUrl, createdAt (one row per user, replaced on save)
 
 ## File Structure
 - `shared/schema.ts` - Drizzle schemas, types, DashboardStats interface
+- `server/auth.ts` - JWT token generation/verification, auth middleware
 - `server/db.ts` - Database connection with pool configuration
-- `server/storage.ts` - Data access layer with transactional operations
-- `server/routes.ts` - API endpoints
+- `server/storage.ts` - Data access layer with transactional operations, all methods accept userId for data isolation
+- `server/routes.ts` - API endpoints with auth middleware protecting all /api routes except /api/auth/*
+- `server/steadfast.ts` - Steadfast API client (createSteadfastOrder, checkSteadfastStatus)
+- `client/src/hooks/use-auth.tsx` - Auth context provider with login/register/logout, JWT token management via localStorage
+- `client/src/pages/auth.tsx` - Login/Register page with email+password form
 - `client/src/pages/` - Dashboard, Products, Sales, Expenses, Purchases, Customers, CustomerDetails, Payments, Investors, Steadfast pages
-- `client/src/components/app-sidebar.tsx` - Navigation sidebar (Suppliers hidden)
-- `client/src/components/invoice-modal.tsx` - Invoice generation modal with preview, print, and PDF download (uses html2canvas + jspdf)
+- `client/src/components/app-sidebar.tsx` - Navigation sidebar with user info and logout button
+- `client/src/components/invoice-modal.tsx` - Invoice generation modal with preview, print, and PDF download
+- `client/src/lib/queryClient.ts` - API request helpers with automatic JWT token injection in Authorization header
 
 ## API Endpoints
-- `GET /api/dashboard` - Dashboard stats (includes cash in hand, working capital, daily/monthly profit)
+### Auth (unprotected)
+- `POST /api/auth/register` - Register with name, email, password
+- `POST /api/auth/login` - Login with email, password
+- `POST /api/auth/google` - Google OAuth login (ready for future use)
+- `GET /api/auth/me` - Get current user (requires JWT)
+
+### Protected (requires Bearer token)
+- `GET /api/dashboard` - Dashboard stats (user-scoped)
 - `GET/POST /api/products`, `PATCH/DELETE /api/products/:id`
 - `GET/POST /api/sales`, `DELETE /api/sales/:id`
 - `GET/POST /api/expenses`, `DELETE /api/expenses/:id`
 - `GET/POST /api/purchases`
 - `GET/POST /api/customers`, `GET/DELETE /api/customers/:id`
-- `GET/POST /api/payments`, `DELETE /api/payments/:id` (delete restores customer due)
+- `GET/POST /api/payments`, `DELETE /api/payments/:id`
 - `GET/POST /api/investors`, `DELETE /api/investors/:id`
-- `GET/POST /api/steadfast-config` - Get/save Steadfast API configuration
-- `GET /api/courier-sales` - Get all sales sent to courier
-- `POST /api/steadfast/send/:id` - Send sale to Steadfast courier (uses DB config, accepts optional body.amount override)
-- `DELETE /api/steadfast/order/:id` - Delete pending courier order (restores stock, only pending status allowed)
-- `POST /api/steadfast/status/:id` - Check/refresh courier delivery status; marks paidAmount on delivered
-- Supplier routes still exist but hidden from UI
+- `GET/POST /api/steadfast-config`
+- `GET /api/courier-sales`
+- `POST /api/steadfast/send/:id`, `DELETE /api/steadfast/order/:id`, `POST /api/steadfast/status/:id`
 
 ## Design Decisions
+- Multi-user architecture: all data tables have `user_id` column; all queries filter by authenticated user's ID
+- JWT tokens stored in localStorage; sent via Authorization header on all API requests
+- Google OAuth endpoint preserved at `/api/auth/google` for future activation (requires VITE_GOOGLE_CLIENT_ID env var)
 - Products have unique productCode for barcode/QR scanning; required when creating new products
 - Sales support barcode scanning input (Enter key trigger) plus manual product selection dropdown
-- Sales support auto customer creation: existing customer selection, new customer with optional save-to-list, or no customer
-- Sales use `sale_items` table for multi-product invoices; old data migrated
+- Sales use `sale_items` table for multi-product invoices
 - All stock/due operations use database transactions for atomicity
-- Payment deletion atomically restores customer due amount
-- Permanent investments are excluded from working capital and expense calculations
-- Daily/monthly stats calculated by filtering sales/expenses by date range
-- Suppliers table preserved in DB but removed from sidebar navigation
-- Steadfast Courier: API credentials stored in `steadfast_config` DB table (configurable from UI); default base URL https://portal.packzy.com/api/v1; when delivered, sale's paidAmount set to totalPrice (adds to Cash In Hand); status badges: pending=yellow, delivered=green, cancelled/returned=red
-- `server/steadfast.ts` - Steadfast API client (createSteadfastOrder, checkSteadfastStatus) — takes config object, uses native fetch, no env vars
-- `client/src/pages/steadfast.tsx` - Steadfast courier management page with Settings UI, send orders, track status
+- Steadfast Courier: API credentials stored per user in `steadfast_config` DB table; auto-sync interval checks all users' courier orders every 30 minutes
+
+## Critical Notes
+- tsx binary symlink breaks after every npm install. Fix: `ln -sf ../tsx/dist/cli.mjs node_modules/.bin/tsx && chmod +x node_modules/.bin/tsx`
+- Never install html2pdf.js — use html2canvas+jspdf instead
+- All devDependencies were moved to dependencies to work with NODE_ENV=production in the Replit environment

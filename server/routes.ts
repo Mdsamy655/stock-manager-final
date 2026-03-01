@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { createSteadfastOrder, checkSteadfastStatus } from "./steadfast";
 import { authMiddleware, generateToken, type AuthUser } from "./auth";
-import { OAuth2Client } from "google-auth-library";
+import bcrypt from "bcryptjs";
 
 const saleItemSchema = z.object({
   productId: z.coerce.number().int().positive(),
@@ -32,6 +32,59 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const { name, email, password } = z.object({
+        name: z.string().min(1, "Name is required"),
+        email: z.string().email("Invalid email"),
+        password: z.string().min(6, "Password must be at least 6 characters"),
+      }).parse(req.body);
+
+      const existing = await storage.getUserByEmail(email);
+      if (existing) {
+        return res.status(400).json({ message: "An account with this email already exists" });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const user = await storage.createUser({ name, email, password: hashedPassword, googleId: null });
+
+      const token = generateToken({ id: user.id, email: user.email, name: user.name });
+      res.status(201).json({ token, user: { id: user.id, name: user.name, email: user.email } });
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: error.errors[0]?.message || "Validation failed" });
+      }
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = z.object({
+        email: z.string().email("Invalid email"),
+        password: z.string().min(1, "Password is required"),
+      }).parse(req.body);
+
+      const user = await storage.getUserByEmail(email);
+      if (!user || !user.password) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      const validPassword = await bcrypt.compare(password, user.password);
+      if (!validPassword) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      const token = generateToken({ id: user.id, email: user.email, name: user.name });
+      res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: error.errors[0]?.message || "Validation failed" });
+      }
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   app.post("/api/auth/google", async (req, res) => {
     try {
       const { credential, clientId } = req.body;
@@ -39,6 +92,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Missing credential or clientId" });
       }
 
+      const { OAuth2Client } = await import("google-auth-library");
       const client = new OAuth2Client(clientId);
       const ticket = await client.verifyIdToken({
         idToken: credential,
@@ -54,6 +108,7 @@ export async function registerRoutes(
         user = await storage.createUser({
           name: payload.name || payload.email,
           email: payload.email,
+          password: null,
           googleId: payload.sub,
         });
       }
@@ -73,7 +128,7 @@ export async function registerRoutes(
   });
 
   app.use("/api", (req, res, next) => {
-    if (req.path === "/auth/google" || req.path === "/auth/me") return next();
+    if (req.path.startsWith("/auth/")) return next();
     authMiddleware(req, res, next);
   });
 
@@ -150,6 +205,8 @@ export async function registerRoutes(
   app.get("/api/products/:id/stock-history", async (req, res) => {
     try {
       const productId = parseInt(req.params.id);
+      const product = await storage.getProduct(productId, req.user!.id);
+      if (!product) return res.status(404).json({ message: "Product not found" });
       const history = await storage.getStockHistory(productId);
       res.json(history);
     } catch (error: any) {

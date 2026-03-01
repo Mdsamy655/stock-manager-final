@@ -9,8 +9,32 @@ function getAuthHeaders(): Record<string, string> {
   return headers;
 }
 
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      queryFn: undefined as any,
+      refetchInterval: false,
+      refetchOnWindowFocus: false,
+      staleTime: Infinity,
+      retry: false,
+    },
+    mutations: {
+      retry: false,
+    },
+  },
+});
+
+function handle401() {
+  localStorage.removeItem("auth_token");
+  queryClient.clear();
+  window.location.reload();
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
+    if (res.status === 401 && !res.url.includes("/api/auth/")) {
+      handle401();
+    }
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
   }
@@ -58,17 +82,15 @@ export const getQueryFn: <T>(options: {
     return await res.json();
   };
 
-export const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      queryFn: getQueryFn({ on401: "throw" }),
-      refetchInterval: false,
-      refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
-    },
-    mutations: {
-      retry: false,
-    },
+queryClient.setDefaultOptions({
+  queries: {
+    queryFn: getQueryFn({ on401: "throw" }),
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    staleTime: Infinity,
+    retry: false,
+  },
+  mutations: {
+    retry: false,
   },
 });
