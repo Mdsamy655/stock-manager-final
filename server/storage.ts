@@ -47,6 +47,8 @@ interface CreateSaleInput {
   paidAmount: number;
   dueAmount: number;
   totalAmount: number;
+  totalWeight: number;
+  codFee: number;
   items: Array<{
     productId: number;
     productName: string;
@@ -258,9 +260,9 @@ export class DatabaseStorage implements IStorage {
       }
 
       const saleResult = await client.query(
-        `INSERT INTO sales (user_id, total_price, customer_id, customer_name, customer_phone, customer_address, paid_amount, due_amount)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-        [input.userId, input.totalAmount, input.customerId || null, input.customerName || null, input.customerPhone || null, input.customerAddress || null, input.paidAmount, input.dueAmount]
+        `INSERT INTO sales (user_id, total_price, customer_id, customer_name, customer_phone, customer_address, paid_amount, due_amount, total_weight, cod_fee)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+        [input.userId, input.totalAmount, input.customerId || null, input.customerName || null, input.customerPhone || null, input.customerAddress || null, input.paidAmount, input.dueAmount, input.totalWeight, input.codFee]
       );
       const saleRow = saleResult.rows[0];
       const saleId = saleRow.id;
@@ -306,6 +308,8 @@ export class DatabaseStorage implements IStorage {
         customerAddress: saleRow.customer_address,
         paidAmount: saleRow.paid_amount,
         dueAmount: saleRow.due_amount,
+        totalWeight: saleRow.total_weight,
+        codFee: saleRow.cod_fee,
         courierStatus: saleRow.courier_status,
         consignmentId: saleRow.consignment_id,
         isSentToCourier: saleRow.is_sent_to_courier,

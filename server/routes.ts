@@ -23,6 +23,7 @@ const saleRequestSchema = z.object({
   customerAddress: z.string().optional(),
   saveToCustomerList: z.boolean().optional(),
   paidAmount: z.coerce.number().min(0).optional(),
+  addCodFee: z.boolean().optional(),
 });
 
 const updateProductSchema = insertProductSchema.partial();
@@ -237,7 +238,7 @@ export async function registerRoutes(
   app.post("/api/sales", async (req, res) => {
     try {
       const userId = req.user!.id;
-      const { items, customerId, customerName: newCustomerName, customerPhone, customerAddress, saveToCustomerList, paidAmount } = saleRequestSchema.parse(req.body);
+      const { items, customerId, customerName: newCustomerName, customerPhone, customerAddress, saveToCustomerList, paidAmount, addCodFee } = saleRequestSchema.parse(req.body);
 
       const resolvedItems: Array<{
         productId: number;
@@ -246,6 +247,7 @@ export async function registerRoutes(
         unitPrice: number;
         costPrice: number;
         totalPrice: number;
+        weightPerUnit: number;
       }> = [];
 
       for (const item of items) {
@@ -260,10 +262,14 @@ export async function registerRoutes(
           unitPrice: saleUnitPrice,
           costPrice: product.costPrice,
           totalPrice: saleUnitPrice * item.quantity,
+          weightPerUnit: product.weightPerUnit ?? 0,
         });
       }
 
-      const totalAmount = resolvedItems.reduce((sum, i) => sum + i.totalPrice, 0);
+      const subtotal = resolvedItems.reduce((sum, i) => sum + i.totalPrice, 0);
+      const totalWeight = resolvedItems.reduce((sum, i) => sum + i.quantity * i.weightPerUnit, 0);
+      const codFee = addCodFee ? Math.round(subtotal * 0.01 * 100) / 100 : 0;
+      const totalAmount = subtotal + codFee;
       const paid = paidAmount !== undefined ? paidAmount : totalAmount;
       const due = totalAmount - paid;
 
@@ -304,6 +310,8 @@ export async function registerRoutes(
         paidAmount: paid,
         dueAmount: due,
         totalAmount,
+        totalWeight,
+        codFee,
         items: resolvedItems,
       });
 

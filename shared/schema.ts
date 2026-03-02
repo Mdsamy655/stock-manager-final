@@ -29,6 +29,7 @@ export const products = pgTable("products", {
   costPrice: real("cost_price").notNull(),
   salePrice: real("sale_price").notNull(),
   stock: integer("stock").notNull().default(0),
+  weightPerUnit: real("weight_per_unit").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -47,6 +48,8 @@ export const sales = pgTable("sales", {
   customerAddress: text("customer_address"),
   paidAmount: real("paid_amount").notNull().default(0),
   dueAmount: real("due_amount").notNull().default(0),
+  totalWeight: real("total_weight").notNull().default(0),
+  codFee: real("cod_fee").notNull().default(0),
   courierStatus: text("courier_status"),
   consignmentId: text("consignment_id"),
   isSentToCourier: boolean("is_sent_to_courier").notNull().default(false),

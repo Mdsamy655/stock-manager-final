@@ -83,6 +83,7 @@ export default function Sales() {
   const [newCustomerAddress, setNewCustomerAddress] = useState("");
   const [saveToCustomerList, setSaveToCustomerList] = useState(true);
   const [paidAmount, setPaidAmount] = useState<string>("");
+  const [addCodFee, setAddCodFee] = useState(false);
 
   const { data: salesList, isLoading } = useQuery<SaleWithItems[]>({
     queryKey: ["/api/sales"],
@@ -107,6 +108,7 @@ export default function Sales() {
     setNewCustomerAddress("");
     setSaveToCustomerList(true);
     setPaidAmount("");
+    setAddCodFee(false);
   };
 
   const addProductByCode = useCallback((code: string) => {
@@ -182,8 +184,17 @@ export default function Sales() {
     return sum + item.salePrice * item.quantity;
   }, 0);
 
-  const paid = paidAmount !== "" ? Number(paidAmount) : subtotal;
-  const due = Math.max(0, subtotal - paid);
+  const totalWeight = lineItems.reduce((sum, item) => {
+    if (!item.productId || item.quantity <= 0) return sum;
+    const product = getProduct(item.productId);
+    return sum + item.quantity * (product?.weightPerUnit ?? 0);
+  }, 0);
+
+  const codFeeAmount = addCodFee ? Math.round(subtotal * 0.01 * 100) / 100 : 0;
+  const grandTotal = subtotal + codFeeAmount;
+
+  const paid = paidAmount !== "" ? Number(paidAmount) : grandTotal;
+  const due = Math.max(0, grandTotal - paid);
 
   const validItems = lineItems.filter((item) => item.productId > 0 && item.quantity > 0);
 
@@ -195,6 +206,7 @@ export default function Sales() {
           quantity: item.quantity,
           unitPrice: item.salePrice,
         })),
+        addCodFee,
       };
       if (customerMode === "existing" && customerId && customerId !== "none") {
         body.customerId = Number(customerId);
@@ -358,16 +370,23 @@ export default function Sales() {
                             </div>
                           </div>
                           {product && (
-                            <div className="flex justify-between text-xs text-muted-foreground">
-                              <span>
-                                Default: {formatTaka(product.salePrice)}
-                                {item.salePrice !== product.salePrice && (
-                                  <span className={profitPerUnit >= 0 ? "text-emerald-600 dark:text-emerald-400 ml-2" : "text-red-600 dark:text-red-400 ml-2"}>
-                                    Profit/unit: {formatTaka(profitPerUnit)}
-                                  </span>
-                                )}
-                              </span>
-                              <span className="font-medium text-foreground">Line Total: {formatTaka(lineTotal)}</span>
+                            <div className="space-y-0.5">
+                              <div className="flex justify-between text-xs text-muted-foreground">
+                                <span>
+                                  Default: {formatTaka(product.salePrice)}
+                                  {item.salePrice !== product.salePrice && (
+                                    <span className={profitPerUnit >= 0 ? "text-emerald-600 dark:text-emerald-400 ml-2" : "text-red-600 dark:text-red-400 ml-2"}>
+                                      Profit/unit: {formatTaka(profitPerUnit)}
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="font-medium text-foreground">Line Total: {formatTaka(lineTotal)}</span>
+                              </div>
+                              {product.weightPerUnit > 0 && (
+                                <div className="flex justify-end text-xs text-muted-foreground" data-testid={`text-line-weight-${index}`}>
+                                  Weight: {(item.quantity * product.weightPerUnit).toFixed(2)} KG
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -489,15 +508,29 @@ export default function Sales() {
 
               {subtotal > 0 && (
                 <>
+                  <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
+                    <Checkbox
+                      id="cod-fee-toggle"
+                      checked={addCodFee}
+                      onCheckedChange={(v) => setAddCodFee(!!v)}
+                      data-testid="checkbox-cod-fee"
+                    />
+                    <label htmlFor="cod-fee-toggle" className="text-sm cursor-pointer flex-1">
+                      Add 1% COD Cost
+                      {addCodFee && <span className="text-muted-foreground ml-2">({formatTaka(codFeeAmount)})</span>}
+                    </label>
+                  </div>
+
                   <div>
                     <Label className="text-sm">Paid Amount</Label>
                     <Input
                       type="number"
                       min="0"
-                      max={subtotal}
-                      placeholder={String(subtotal)}
+                      max={grandTotal}
+                      placeholder={String(grandTotal)}
                       value={paidAmount}
                       onChange={(e) => setPaidAmount(e.target.value)}
+                      inputMode="decimal"
                       data-testid="input-paid-amount"
                     />
                   </div>
@@ -507,12 +540,28 @@ export default function Sales() {
                       <span className="text-muted-foreground">Subtotal ({validItems.length} item{validItems.length !== 1 ? "s" : ""}):</span>
                       <span className="font-semibold">{formatTaka(subtotal)}</span>
                     </div>
+                    {addCodFee && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">COD Fee (1%):</span>
+                        <span className="font-medium">{formatTaka(codFeeAmount)}</span>
+                      </div>
+                    )}
+                    {totalWeight > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Total Weight:</span>
+                        <span className="font-medium" data-testid="text-total-weight">{totalWeight.toFixed(2)} KG</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between border-t pt-1">
+                      <span className="text-muted-foreground font-medium">Grand Total:</span>
+                      <span className="font-bold" data-testid="text-grand-total">{formatTaka(grandTotal)}</span>
+                    </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Paid:</span>
                       <span className="text-emerald-600">{formatTaka(paid)}</span>
                     </div>
                     {due > 0 && (
-                      <div className="flex justify-between border-t pt-1">
+                      <div className="flex justify-between">
                         <span className="text-muted-foreground font-medium">Due:</span>
                         <span className="font-semibold text-red-600">{formatTaka(due)}</span>
                       </div>
@@ -580,7 +629,17 @@ export default function Sales() {
                           </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground">{sale.customerName || "-"}</TableCell>
-                        <TableCell className="text-right font-medium">{formatTaka(sale.totalPrice)}</TableCell>
+                        <TableCell className="text-right font-medium">
+                          <div>
+                            {formatTaka(sale.totalPrice)}
+                            {(sale.codFee ?? 0) > 0 && (
+                              <div className="text-xs text-muted-foreground">incl. COD {formatTaka(sale.codFee)}</div>
+                            )}
+                            {(sale.totalWeight ?? 0) > 0 && (
+                              <div className="text-xs text-muted-foreground">{(sale.totalWeight ?? 0).toFixed(2)} KG</div>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-right text-emerald-600 dark:text-emerald-400">
                           {formatTaka(sale.paidAmount ?? sale.totalPrice)}
                         </TableCell>

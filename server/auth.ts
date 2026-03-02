@@ -32,17 +32,18 @@ export function verifyToken(token: string): AuthUser | null {
 }
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
+  // AUTH DISABLED: Set default user for all requests
+  // To re-enable auth, restore the original token-based checks below
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Authentication required" });
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.substring(7);
+    const user = verifyToken(token);
+    if (user) {
+      req.user = user;
+      return next();
+    }
   }
-
-  const token = authHeader.substring(7);
-  const user = verifyToken(token);
-  if (!user) {
-    return res.status(401).json({ message: "Invalid or expired token" });
-  }
-
-  req.user = user;
+  // Default user when no valid token provided
+  req.user = { id: 4, email: "default@app.local", name: "User" };
   next();
 }

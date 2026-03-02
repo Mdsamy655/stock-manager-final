@@ -58,6 +58,8 @@ export default function InvoiceModal({ sale, open, onOpenChange }: InvoiceModalP
     return salePaid > 0 && salePaid < sale.totalPrice ? String(salePaid) : "";
   });
 
+  const saleCodFee = sale.codFee ?? 0;
+  const saleSubtotal = saleCodFee > 0 ? sale.totalPrice - saleCodFee : sale.totalPrice;
   const subtotal = sale.totalPrice;
   const grandTotal = subtotal + deliveryCharge;
 
@@ -346,8 +348,25 @@ export default function InvoiceModal({ sale, open, onOpenChange }: InvoiceModalP
                 </table>
 
                 <div style={{ borderTop: "2px solid #e5e7eb", paddingTop: "12px", fontSize: "13px" }}>
+                  {(sale.totalWeight ?? 0) > 0 && (
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "8px" }}>
+                      <span style={{ color: "#666", fontSize: "12px" }} data-testid="text-invoice-weight">Total Weight: {(sale.totalWeight ?? 0).toFixed(2)} KG</span>
+                    </div>
+                  )}
                   <div style={{ display: "flex", justifyContent: "flex-end" }}>
                     <div style={{ width: "240px" }}>
+                      {saleCodFee > 0 && (
+                        <>
+                          <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
+                            <span style={{ color: "#666" }}>Items Total:</span>
+                            <span>{formatTaka(saleSubtotal)}</span>
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
+                            <span style={{ color: "#666" }}>COD Fee (1%):</span>
+                            <span data-testid="text-invoice-cod-fee">{formatTaka(saleCodFee)}</span>
+                          </div>
+                        </>
+                      )}
                       <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
                         <span style={{ color: "#666" }}>Subtotal:</span>
                         <span data-testid="text-invoice-subtotal">{formatTaka(subtotal)}</span>

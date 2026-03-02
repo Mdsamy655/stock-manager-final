@@ -49,6 +49,7 @@ const productFormSchema = z.object({
   costPrice: z.coerce.number().positive("Must be greater than 0"),
   salePrice: z.coerce.number().positive("Must be greater than 0"),
   stock: z.coerce.number().int().min(0, "Stock cannot be negative"),
+  weightPerUnit: z.coerce.number().min(0, "Weight cannot be negative"),
 });
 
 type ProductFormValues = z.infer<typeof productFormSchema>;
@@ -76,7 +77,7 @@ export default function Products() {
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
-    defaultValues: { name: "", productCode: "", costPrice: 0, salePrice: 0, stock: 0 },
+    defaultValues: { name: "", productCode: "", costPrice: 0, salePrice: 0, stock: 0, weightPerUnit: 0 },
   });
 
   const stockForm = useForm<StockAdjustValues>({
@@ -220,19 +221,34 @@ export default function Products() {
                     )}
                   />
                 </div>
-                <FormField
-                  control={form.control}
-                  name="stock"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Initial Stock</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="0" {...field} data-testid="input-stock" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="stock"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Initial Stock</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="0" {...field} data-testid="input-stock" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="weightPerUnit"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Weight per Unit (KG)</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.01" min="0" inputMode="decimal" placeholder="0" {...field} data-testid="input-weight-per-unit" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
                 <Button type="submit" className="w-full" disabled={createMutation.isPending} data-testid="button-submit-product">
                   {createMutation.isPending ? "Adding..." : "Add Product"}
                 </Button>
@@ -350,6 +366,7 @@ export default function Products() {
                     <TableHead className="text-right">Cost Price</TableHead>
                     <TableHead className="text-right">Sale Price</TableHead>
                     <TableHead className="text-right">Profit/Unit</TableHead>
+                    <TableHead className="text-right">Weight (KG)</TableHead>
                     <TableHead className="text-right">Stock</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -365,6 +382,9 @@ export default function Products() {
                       <TableCell className="text-right">{formatTaka(product.salePrice)}</TableCell>
                       <TableCell className="text-right text-emerald-600 dark:text-emerald-400">
                         {formatTaka(product.salePrice - product.costPrice)}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {product.weightPerUnit > 0 ? `${product.weightPerUnit} KG` : "-"}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
