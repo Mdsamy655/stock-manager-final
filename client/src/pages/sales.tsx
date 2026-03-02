@@ -191,7 +191,20 @@ export default function Sales() {
   }, 0);
 
   const codFeeAmount = addCodFee ? Math.round(subtotal * 0.01 * 100) / 100 : 0;
-  const grandTotal = subtotal + codFeeAmount;
+
+  const deliveryCharge = totalWeight > 0
+    ? totalWeight < 0.5
+      ? 110
+      : totalWeight <= 1
+        ? 130
+        : Math.round((130 + (totalWeight - 1) * 20) * 100) / 100
+    : 0;
+
+  const packingCharge = totalWeight > 0
+    ? totalWeight > 5 ? 15 : 10
+    : 0;
+
+  const grandTotal = subtotal + codFeeAmount + deliveryCharge + packingCharge;
 
   const paid = paidAmount !== "" ? Number(paidAmount) : grandTotal;
   const due = Math.max(0, grandTotal - paid);
@@ -547,10 +560,20 @@ export default function Sales() {
                       </div>
                     )}
                     {totalWeight > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Total Weight:</span>
-                        <span className="font-medium" data-testid="text-total-weight">{totalWeight.toFixed(2)} KG</span>
-                      </div>
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Total Weight:</span>
+                          <span className="font-medium" data-testid="text-total-weight">{totalWeight.toFixed(2)} KG</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Delivery Charge:</span>
+                          <span className="font-medium" data-testid="text-delivery-charge">{formatTaka(deliveryCharge)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Packing Charge:</span>
+                          <span className="font-medium" data-testid="text-packing-charge">{formatTaka(packingCharge)}</span>
+                        </div>
+                      </>
                     )}
                     <div className="flex justify-between border-t pt-1">
                       <span className="text-muted-foreground font-medium">Grand Total:</span>
