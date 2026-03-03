@@ -27,9 +27,11 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Truck, Send, RefreshCw, Package, CheckCircle, XCircle, Clock, Settings, Save, Trash2, Printer } from "lucide-react";
 import type { SaleWithItems } from "@shared/schema";
 import CourierLabel from "@/components/courier-label";
+import BulkLabelPrint from "@/components/bulk-label-print";
 
 function formatTaka(amount: number): string {
   return `৳${amount.toLocaleString("en-BD")}`;
@@ -74,6 +76,8 @@ export default function Steadfast() {
   const [baseUrl, setBaseUrl] = useState("https://portal.packzy.com/api/v1");
   const [amountOverrides, setAmountOverrides] = useState<Record<number, number>>({});
   const [labelSale, setLabelSale] = useState<SaleWithItems | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkPrintSales, setBulkPrintSales] = useState<SaleWithItems[] | null>(null);
 
   const { data: config, isLoading: configLoading } = useQuery<SteadfastConfigData>({
     queryKey: ["/api/steadfast-config"],
@@ -326,10 +330,26 @@ export default function Steadfast() {
 
       <Card data-testid="card-courier-orders">
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Truck className="h-5 w-5" />
-            Courier Orders ({courierSales.length})
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Truck className="h-5 w-5" />
+              Courier Orders ({courierSales.length})
+            </CardTitle>
+            {courierSales.length > 0 && selectedIds.size > 0 && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  const selected = courierSales.filter(s => selectedIds.has(s.id));
+                  if (selected.length === 0) return;
+                  setBulkPrintSales(selected);
+                }}
+                data-testid="button-print-selected-labels"
+              >
+                <Printer className="h-4 w-4 mr-1" />
+                Print Selected ({selectedIds.size})
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -346,6 +366,19 @@ export default function Steadfast() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[40px]">
+                    <Checkbox
+                      checked={courierSales.length > 0 && selectedIds.size === courierSales.length}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedIds(new Set(courierSales.map(s => s.id)));
+                        } else {
+                          setSelectedIds(new Set());
+                        }
+                      }}
+                      data-testid="checkbox-select-all"
+                    />
+                  </TableHead>
                   <TableHead>Sale #</TableHead>
                   <TableHead>Consignment ID</TableHead>
                   <TableHead>Customer</TableHead>
@@ -359,6 +392,19 @@ export default function Steadfast() {
               <TableBody>
                 {courierSales.map((sale) => (
                   <TableRow key={sale.id} data-testid={`row-courier-${sale.id}`}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.has(sale.id)}
+                        onCheckedChange={(checked) => {
+                          setSelectedIds(prev => {
+                            const next = new Set(prev);
+                            if (checked) { next.add(sale.id); } else { next.delete(sale.id); }
+                            return next;
+                          });
+                        }}
+                        data-testid={`checkbox-select-${sale.id}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">#{sale.id}</TableCell>
                     <TableCell className="font-mono text-sm" data-testid={`text-consignment-${sale.id}`}>{sale.consignmentId || "-"}</TableCell>
                     <TableCell>{sale.customerName}</TableCell>
@@ -436,6 +482,13 @@ export default function Steadfast() {
           sale={labelSale}
           open={!!labelSale}
           onOpenChange={(v) => { if (!v) setLabelSale(null); }}
+        />
+      )}
+
+      {bulkPrintSales && bulkPrintSales.length > 0 && (
+        <BulkLabelPrint
+          sales={bulkPrintSales}
+          onClose={() => setBulkPrintSales(null)}
         />
       )}
     </div>
