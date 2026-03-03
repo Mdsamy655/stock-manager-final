@@ -92,6 +92,20 @@ export function AppSidebar({ userName, userEmail, onLogout }: AppSidebarProps) {
           </div>
         </SidebarFooter>
       )}
+      <div className="mt-auto border-t px-4 py-3" data-testid="footer-developer-credit">
+        <p className="text-[11px] text-muted-foreground/70 leading-tight">
+          Website Developer & Designer:{" "}
+          <a
+            href="https://www.facebook.com/shahriar.ahmed.677"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline hover:text-muted-foreground transition-colors"
+            data-testid="link-developer"
+          >
+            Shahriar Ahmed
+          </a>
+        </p>
+      </div>
     </Sidebar>
   );
 }
