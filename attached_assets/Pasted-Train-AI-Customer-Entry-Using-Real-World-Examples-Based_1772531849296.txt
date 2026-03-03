@@ -1,0 +1,248 @@
+Train AI Customer Entry Using Real-World Examples (Based on Provided Samples)
+
+Objective:
+Train AI using actual messy customer formats shown in examples.
+AI must correctly detect Name, Phone, Address from real patterns.
+
+---
+
+REAL PATTERN ANALYSIS FROM PROVIDED DATA
+
+Observed patterns:
+
+1) 
+
+prottoy
+01626957345
+Deshwalipotti, rajgonj, cumilla
+
+→ Name on first line
+→ Phone on second line
+→ Address on third line
+
+---
+
+2) 
+
+Afik anowar
+01710345556
+ঝিনাইদহ সদর
+
+→ Name first
+→ Phone second
+→ Bangla address third
+
+---
+
+3) 
+
+Zaman Sunny
+01981714142
+Vorosha Badsha Palace Maniknogor Pukurpar Dhaka Thana - Mugdha
+
+→ Name first line
+→ Phone second line
+→ Long mixed English address third line
+
+---
+
+4) 
+
+নাম : আকাশ
+ঠিকানা : সাহেবের হাট, বরিশাল সদর, বরিশাল
+মোবাইল : 01790574558
+
+→ Labeled format
+→ Must prioritize labels
+→ Ignore order
+
+---
+
+5) 
+
+Nusrat
+Ranir dighir dokkhin purbo corner Victoria palace er opposite cumilla
+01823791866
+
+→ Name first
+→ Address second
+→ Phone last
+
+---
+
+6) 
+
+Sadia
+01816722221
+Aburhat ,mirsarai,chittagong
+
+→ Name
+→ Phone
+→ Address
+
+---
+
+7) 
+
+Mamun
+01797718470
+161/7, Taj Lane, Moddho Paikpara, Mirpur 01 Dhaka
+
+→ Name
+→ Phone
+→ Address with house number
+
+---
+
+8) 
+
+Riyan
+01833900195
+Middle madarsha,hathazari,ctg
+
+→ Name
+→ Phone
+→ Short address with district abbreviation
+
+---
+
+TRAINING RULES BASED ON THESE PATTERNS
+
+STEP 1: LINE-BASED PRIORITY
+
+If input has line breaks:
+
+Line 1 (short text, no numbers) → Name
+Line containing 11-digit 01 number → Phone
+Longest remaining line → Address
+
+---
+
+STEP 2: LABELED PRIORITY (STRICT)
+
+If contains:
+নাম:
+ঠিকানা:
+মোবাইল:
+Name:
+Phone:
+Address:
+
+Always extract by label first.
+Ignore position.
+
+---
+
+STEP 3: PHONE PRIORITY (GLOBAL RULE)
+
+Always:
+
+- Detect 11-digit BD number
+- Convert Bangla digits to English
+- Remove from text before further parsing
+
+---
+
+STEP 4: NAME RULE BASED ON REAL DATA
+
+From examples:
+
+Name characteristics:
+
+- Usually first short line
+- 1–3 words
+- No digits
+- Not long sentence
+- Not containing address keywords
+
+If a segment:
+
+- Word count <= 3
+- No numbers
+- No address keywords
+  → Strong Name candidate
+
+---
+
+STEP 5: ADDRESS RULE BASED ON REAL DATA
+
+Address characteristics from examples:
+
+- Often longer text
+- Contains location names
+- May contain house number (161/7)
+- May contain comma
+- May contain district name
+- May contain abbreviations like ctg
+
+If segment:
+
+- Contains numbers with slash
+- Contains comma
+- More than 3 words
+- Contains district name
+
+→ Treat as Address
+
+---
+
+STEP 6: DISTRICT / LOCATION RECOGNITION
+
+Based on samples include detection for:
+
+cumilla
+rajgonj
+mugdha
+mirpur
+hathazari
+mirsarai
+barishal
+zhinaidah
+ctg
+dhaka
+
+Bangla:
+বরিশাল
+ঝিনাইদহ
+হাজীগঞ্জ
+কুমিল্লা
+ঢাকা
+
+These increase Address probability.
+
+---
+
+STEP 7: FALLBACK RULE
+
+If structure is:
+
+Single short word
++
+Phone
++
+Multiple words
+
+→ First short word = Name
+→ Rest = Address
+
+---
+
+FINAL GOAL
+
+Using real-world messy examples,
+AI must correctly extract:
+
+Name
+Phone (English digits only)
+Address
+
+Even if:
+
+- Phone at bottom
+- Address in middle
+- Bangla labels used
+- Mixed Bangla & English
+- Short abbreviations used
+
+Do NOT change form structure.
+Only improve parsing intelligence.

@@ -72,20 +72,27 @@ function normalizeBanglaDigits(text: string): string {
   return text.replace(/[০-৯]/g, (ch) => BANGLA_DIGITS[ch] || ch);
 }
 
-const ADDRESS_KEYWORDS = /\b(road|rd|street|st|house|building|village|market|bazar|bazaar|union|thana|upazila|district|block|sector|lane|area|town|city|division|post|po|ps|flat|floor|gate|nagar|para|gali|mohalla|colony)\b|রোড|রাস্তা|বাড়ি|বাসা|গ্রাম|পাড়া|বাজার|ইউনিয়ন|থানা|উপজেলা|জেলা|ডাকঘর|সড়ক|লেন|এলাকা|শহর|বিভাগ|মহল্লা|নগর|ব্লক|সেক্টর|ফ্ল্যাট/i;
+const ADDRESS_KEYWORDS = /\b(road|rd|street|st|house|building|village|market|bazar|bazaar|union|thana|upazila|district|block|sector|lane|area|town|city|division|post|po|ps|flat|floor|gate|nagar|para|gali|mohalla|colony|paikpara|corner|opposite|palace|dokkhin|purbo|uttor|poschim|madarsha|sadar|sador|potti|pottee|hat|ghat|mor|bridge|tower|plaza|center|centre|complex|dighir|er)\b|রোড|রাস্তা|বাড়ি|বাসা|গ্রাম|পাড়া|বাজার|ইউনিয়ন|থানা|উপজেলা|জেলা|ডাকঘর|সড়ক|লেন|এলাকা|শহর|বিভাগ|মহল্লা|নগর|ব্লক|সেক্টর|ফ্ল্যাট|সদর|হাট|ঘাট|মোড়|পট্টি|টাওয়ার|কমপ্লেক্স|দক্ষিণ|পূর্ব|উত্তর|পশ্চিম/i;
+
+const DISTRICT_NAMES = /\b(dhaka|chittagong|chattogram|ctg|rajshahi|khulna|sylhet|barishal|barisal|rangpur|mymensingh|comilla|cumilla|noakhali|feni|lakshmipur|cox|bogra|bogura|dinajpur|jessore|jashore|narsingdi|narayanganj|gazipur|tangail|manikganj|maniknogor|munshiganj|faridpur|madaripur|gopalganj|shariatpur|rajbari|brahmanbaria|habiganj|sunamganj|kishoreganj|netrokona|sherpur|jamalpur|pabna|sirajganj|natore|nawabganj|chapainawabganj|joypurhat|naogaon|kushtia|chuadanga|meherpur|jhenaidah|zhinaidah|narail|magura|satkhira|bagerhat|pirojpur|barguna|patuakhali|bhola|jhalokati|kurigram|nilphamari|lalmonirhat|gaibandha|thakurgaon|panchagarh|bandarban|rangamati|khagrachhari|moulvibazar|sunamganj|mugdha|mirpur|hathazari|mirsarai|hajiganj|rajgonj)\b|কুমিল্লা|ঢাকা|চট্টগ্রাম|রাজশাহী|খুলনা|সিলেট|বরিশাল|রংপুর|ময়মনসিংহ|ঝিনাইদহ|হাজীগঞ্জ|মিরপুর|মুগদা|হাটহাজারী|মীরসরাই|রাজগঞ্জ|মানিকনগর/i;
 
 const NAME_PREFIXES = /^(মোঃ|মো:|মোহাম্মদ|মুহাম্মদ|শেখ|md\.?|mohammad|muhammad|sheikh|sk\.?|begum|বেগম|মিসেস|mrs\.?|mr\.?|মিস|miss|ms\.?)$/i;
 
-function isAddressWord(word: string): boolean {
-  return ADDRESS_KEYWORDS.test(word);
+function isAddressLike(s: string): boolean {
+  const lower = s.toLowerCase();
+  return ADDRESS_KEYWORDS.test(lower) || DISTRICT_NAMES.test(lower) || /\d+\s*[\/\\]\s*\d+/.test(s) || (s.split(/\s+/).length > 3 && /[,\-]/.test(s));
 }
 
-function isNamePrefix(word: string): boolean {
-  return NAME_PREFIXES.test(word);
+function isNameLike(s: string): boolean {
+  const words = s.split(/\s+/);
+  if (words.length > 4) return false;
+  if (/\d/.test(s)) return false;
+  if (ADDRESS_KEYWORDS.test(s) || DISTRICT_NAMES.test(s)) return false;
+  return true;
 }
 
-function hasDigit(s: string): boolean {
-  return /\d/.test(s);
+function isPhoneLine(s: string): boolean {
+  return /^\s*(?:(?:\+?880)|0)1[3-9]\d{8}\s*$/.test(normalizeBanglaDigits(s));
 }
 
 function parseAICustomerInput(raw: string): { name: string; phone: string; address: string } {
@@ -111,12 +118,51 @@ function parseAICustomerInput(raw: string): { name: string; phone: string; addre
   const phoneMatch = normalized.match(phoneRegex);
   const phone = phoneMatch ? phoneMatch[0] : "";
 
-  const origText = text;
-  let remaining = origText;
-  if (phoneMatch && phoneMatch.index !== undefined) {
-    remaining = (origText.substring(0, phoneMatch.index) + " " + origText.substring(phoneMatch.index + phoneMatch[0].length)).trim();
+  const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+
+  if (lines.length >= 2) {
+    const nonPhoneLines: string[] = [];
+    for (const line of lines) {
+      if (!isPhoneLine(line)) {
+        nonPhoneLines.push(line);
+      }
+    }
+
+    if (nonPhoneLines.length >= 2) {
+      let nameIdx = -1;
+      let addrIdx = -1;
+
+      for (let i = 0; i < nonPhoneLines.length; i++) {
+        if (nameIdx === -1 && isNameLike(nonPhoneLines[i])) {
+          nameIdx = i;
+        }
+      }
+
+      if (nameIdx >= 0) {
+        const remaining = nonPhoneLines.filter((_, i) => i !== nameIdx);
+        return { name: nonPhoneLines[nameIdx], phone, address: remaining.join(", ") };
+      }
+
+      return { name: nonPhoneLines[0], phone, address: nonPhoneLines.slice(1).join(", ") };
+    }
+
+    if (nonPhoneLines.length === 1) {
+      const line = nonPhoneLines[0];
+      if (isNameLike(line)) {
+        return { name: line, phone, address: "" };
+      }
+      return { name: "", phone, address: line };
+    }
+
+    return { name: "", phone, address: "" };
   }
 
+  let remaining = text;
+  if (phoneMatch && phoneMatch.index !== undefined) {
+    const before = text.substring(0, phoneMatch.index);
+    const after = text.substring(phoneMatch.index + phoneMatch[0].length);
+    remaining = (before + " " + after).trim();
+  }
   remaining = remaining.replace(/\s+/g, " ").trim();
 
   if (!remaining) return { name: "", phone, address: "" };
@@ -124,21 +170,21 @@ function parseAICustomerInput(raw: string): { name: string; phone: string; addre
   const commaSegments = remaining.split(/\s*,\s*/).map(s => s.trim()).filter(Boolean);
 
   if (commaSegments.length >= 3) {
-    const nameIdx = commaSegments.findIndex(s => !hasDigit(s) && !isAddressWord(s) && s.split(/\s+/).length <= 3);
+    const nameIdx = commaSegments.findIndex(s => isNameLike(s) && s.split(/\s+/).length <= 3);
     if (nameIdx >= 0) {
-      const name = commaSegments[nameIdx];
-      const address = commaSegments.filter((_, i) => i !== nameIdx).join(", ");
-      return { name, phone, address };
+      return { name: commaSegments[nameIdx], phone, address: commaSegments.filter((_, i) => i !== nameIdx).join(", ") };
     }
     return { name: commaSegments[0], phone, address: commaSegments.slice(1).join(", ") };
   }
 
   if (commaSegments.length === 2) {
-    const seg0HasAddr = isAddressWord(commaSegments[0]) || hasDigit(commaSegments[0]);
-    const seg1HasAddr = isAddressWord(commaSegments[1]) || hasDigit(commaSegments[1]);
-
-    if (seg0HasAddr && !seg1HasAddr && commaSegments[1].split(/\s+/).length <= 3) {
+    const seg0Addr = isAddressLike(commaSegments[0]);
+    const seg1Addr = isAddressLike(commaSegments[1]);
+    if (seg0Addr && !seg1Addr && isNameLike(commaSegments[1])) {
       return { name: commaSegments[1], phone, address: commaSegments[0] };
+    }
+    if (!seg0Addr && isNameLike(commaSegments[0])) {
+      return { name: commaSegments[0], phone, address: commaSegments[1] };
     }
     return { name: commaSegments[0], phone, address: commaSegments[1] };
   }
@@ -157,34 +203,34 @@ function parseAICustomerInput(raw: string): { name: string; phone: string; addre
     const w = words[i];
 
     if (!nameDone) {
-      if (isNamePrefix(w)) {
+      if (NAME_PREFIXES.test(w)) {
         nameWords.push(w);
         continue;
       }
 
-      if (hasDigit(w) || isAddressWord(w)) {
+      if (/\d/.test(w) || ADDRESS_KEYWORDS.test(w) || DISTRICT_NAMES.test(w)) {
         nameDone = true;
         addressWords.push(w);
         continue;
       }
 
-      if (nameWords.length < 3) {
-        const lookAhead = words.slice(i + 1);
-        const nextIsAddr = lookAhead.length > 0 && (isAddressWord(lookAhead[0]) || hasDigit(lookAhead[0]));
-
-        if (nameWords.length >= 1 && nextIsAddr) {
-          nameWords.push(w);
-          nameDone = true;
-          continue;
-        }
-
+      if (nameWords.filter(nw => !NAME_PREFIXES.test(nw)).length < 2) {
         nameWords.push(w);
 
-        if (nameWords.filter(nw => !isNamePrefix(nw)).length >= 2 && i + 1 < words.length) {
-          const restHasAddr = words.slice(i + 1).some(rw => isAddressWord(rw) || hasDigit(rw));
-          if (restHasAddr) {
-            nameDone = true;
-          }
+        const restWords = words.slice(i + 1);
+        if (nameWords.filter(nw => !NAME_PREFIXES.test(nw)).length >= 2 && restWords.length > 0) {
+          const restHasAddr = restWords.some(rw => ADDRESS_KEYWORDS.test(rw) || DISTRICT_NAMES.test(rw) || /\d/.test(rw));
+          if (restHasAddr) nameDone = true;
+        }
+      } else if (nameWords.filter(nw => !NAME_PREFIXES.test(nw)).length < 3 && !ADDRESS_KEYWORDS.test(w) && !DISTRICT_NAMES.test(w)) {
+        const nextWords = words.slice(i + 1);
+        const nextIsAddr = nextWords.length > 0 && (ADDRESS_KEYWORDS.test(nextWords[0]) || DISTRICT_NAMES.test(nextWords[0]) || /\d/.test(nextWords[0]));
+        if (nextIsAddr) {
+          nameWords.push(w);
+          nameDone = true;
+        } else {
+          nameDone = true;
+          addressWords.push(w);
         }
       } else {
         nameDone = true;
@@ -196,9 +242,9 @@ function parseAICustomerInput(raw: string): { name: string; phone: string; addre
   }
 
   if (nameWords.length === 0 && addressWords.length > 0) {
-    const nonAddrIdx = addressWords.findIndex(w => !isAddressWord(w) && !hasDigit(w));
-    if (nonAddrIdx >= 0) {
-      nameWords.push(...addressWords.splice(nonAddrIdx, 1));
+    const bestIdx = addressWords.findIndex(w => !ADDRESS_KEYWORDS.test(w) && !DISTRICT_NAMES.test(w) && !/\d/.test(w));
+    if (bestIdx >= 0) {
+      nameWords.push(...addressWords.splice(bestIdx, 1));
     }
   }
 
