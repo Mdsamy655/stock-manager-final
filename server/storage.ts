@@ -740,8 +740,14 @@ export class DatabaseStorage implements IStorage {
     const totalCostOfSold = activeItems.reduce((sum, item) => sum + item.costPrice * item.quantity, 0) +
       activeSales.filter((s) => !itemSaleIds.has(s.id) && s.costPrice && s.quantity)
         .reduce((sum, s) => sum + (s.costPrice! * s.quantity!), 0);
-    const totalInvestment = allProducts.reduce((sum, p) => sum + p.costPrice * p.stock, 0) + totalCostOfSold;
-    const currentStockValue = allProducts.reduce((sum, p) => sum + p.salePrice * p.stock, 0);
+    const totalInvestment = allProducts.reduce(
+  (sum, p) => sum + p.costPrice * p.stock,
+  0
+);
+    const currentStockValue = allProducts.reduce(
+  (sum, p) => sum + p.costPrice * p.stock,
+  0
+);
     const normalExpenses = allExpenses.filter((e) => e.category !== "Permanent Asset");
     const totalExpenses = normalExpenses.reduce((sum, e) => sum + e.amount, 0);
     const totalPermanentAssets = allExpenses.filter((e) => e.category === "Permanent Asset").reduce((sum, e) => sum + e.amount, 0);
