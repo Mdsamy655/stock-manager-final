@@ -50,6 +50,7 @@ export const sales = pgTable("sales", {
   dueAmount: real("due_amount").notNull().default(0),
   totalWeight: real("total_weight").notNull().default(0),
   codFee: real("cod_fee").notNull().default(0),
+  deliveryCharge: real("delivery_charge").notNull().default(0),
   courierStatus: text("courier_status"),
   consignmentId: text("consignment_id"),
   isSentToCourier: boolean("is_sent_to_courier").notNull().default(false),

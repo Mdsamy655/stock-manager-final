@@ -6,7 +6,8 @@ import { eq, and, isNotNull } from "drizzle-orm";
 
 import { checkSteadfastStatus } from "./steadfast";
 import { db } from "./db";
-import { sales, steadfastConfig } from "@shared/schema";
+import { sales, expenses, steadfastConfig } from "@shared/schema";
+import { storage } from "./storage";
 const app = express();
 const httpServer = createServer(app);
 
@@ -120,18 +121,39 @@ process.on("unhandledRejection", (reason) => {
               )
             );
 
+            const TERMINAL_STATUSES = ["delivered", "cancelled", "returned", "cancelled_delivery"];
             for (const order of orders) {
               if (!order.consignmentId) continue;
-              if (order.courierStatus === "delivered" || order.courierStatus === "cancelled") continue;
+              if (TERMINAL_STATUSES.includes(order.courierStatus || "")) continue;
 
               try {
                 const data = await checkSteadfastStatus(config, order.consignmentId);
                 if (!data?.delivery_status) continue;
+                const newStatus = data.delivery_status;
+                const oldStatus = order.courierStatus;
 
                 await db
                   .update(sales)
-                  .set({ courierStatus: data.delivery_status })
+                  .set({ courierStatus: newStatus })
                   .where(eq(sales.id, order.id));
+
+                if (newStatus === "delivered" && oldStatus !== "delivered") {
+                  await storage.updateSalePayment(order.id, config.userId, order.totalPrice, 0);
+                }
+
+                const RETURNED = ["returned", "cancelled", "cancelled_delivery"];
+                if (RETURNED.includes(newStatus) && !RETURNED.includes(oldStatus || "")) {
+                  await storage.updateSalePayment(order.id, config.userId, 0, 0);
+
+                  const deliveryChargeAmount = order.deliveryCharge ?? 0;
+                  if (deliveryChargeAmount > 0) {
+                    await storage.createExpense(config.userId, {
+                      description: `Return delivery charge - Order #${order.id} (${order.customerName || "Unknown"})`,
+                      amount: deliveryChargeAmount,
+                      category: "Delivery",
+                    });
+                  }
+                }
               } catch (err) {
                 console.log("Status check failed for order", order.id);
               }

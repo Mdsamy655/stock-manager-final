@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { sales, insertProductSchema, insertExpenseSchema, insertSupplierSchema, insertPurchaseSchema, insertCustomerSchema, insertInvestorSchema } from "@shared/schema";
+import { sales, expenses, insertProductSchema, insertExpenseSchema, insertSupplierSchema, insertPurchaseSchema, insertCustomerSchema, insertInvestorSchema } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { createSteadfastOrder, checkSteadfastStatus } from "./steadfast";
@@ -269,6 +269,18 @@ export async function registerRoutes(
       const subtotal = resolvedItems.reduce((sum, i) => sum + i.totalPrice, 0);
       const totalWeight = resolvedItems.reduce((sum, i) => sum + i.quantity * i.weightPerUnit, 0);
       const codFee = addCodFee ? Math.round(subtotal * 0.01 * 100) / 100 : 0;
+
+      let deliveryCharge = 0;
+      if (totalWeight > 0) {
+        if (totalWeight <= 0.5) deliveryCharge = 60;
+        else if (totalWeight <= 1) deliveryCharge = 110;
+        else deliveryCharge = 130 + Math.ceil(totalWeight - 1) * 20;
+      }
+      let packingCharge = 0;
+      if (totalWeight > 0) {
+        packingCharge = totalWeight > 5 ? 15 : 10;
+      }
+
       const totalAmount = subtotal + codFee;
       const paid = paidAmount !== undefined ? paidAmount : totalAmount;
       const due = totalAmount - paid;
@@ -312,6 +324,7 @@ export async function registerRoutes(
         totalAmount,
         totalWeight,
         codFee,
+        deliveryCharge: deliveryCharge + packingCharge,
         items: resolvedItems,
       });
 
@@ -675,10 +688,28 @@ export async function registerRoutes(
       if (!sale.consignmentId) return res.status(400).json({ message: "No consignment ID found" });
 
       const result = await checkSteadfastStatus(config, sale.consignmentId);
-      await storage.updateSaleCourier(id, userId, sale.consignmentId, result.delivery_status);
-      if (result.delivery_status === "delivered" && sale.courierStatus !== "delivered") {
+      const newStatus = result.delivery_status;
+      const oldStatus = sale.courierStatus;
+      await storage.updateSaleCourier(id, userId, sale.consignmentId, newStatus);
+
+      if (newStatus === "delivered" && oldStatus !== "delivered") {
         await storage.updateSalePayment(id, userId, sale.totalPrice, 0);
       }
+
+      const RETURNED_STATUSES = ["returned", "cancelled", "cancelled_delivery"];
+      if (RETURNED_STATUSES.includes(newStatus) && !RETURNED_STATUSES.includes(oldStatus || "")) {
+        await storage.updateSalePayment(id, userId, 0, 0);
+
+        const deliveryChargeAmount = sale.deliveryCharge ?? 0;
+        if (deliveryChargeAmount > 0) {
+          await storage.createExpense(userId, {
+            description: `Return delivery charge - Order #${id} (${sale.customerName || "Unknown"})`,
+            amount: deliveryChargeAmount,
+            category: "Delivery",
+          });
+        }
+      }
+
       const updated = await storage.getCourierSales(userId);
       const updatedSale = updated.find((s) => s.id === id);
       res.json(updatedSale);

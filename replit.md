@@ -19,7 +19,7 @@ A professional inventory management system built with Node.js, Express, React, a
 - **Customers:** Add/view customers with due amount tracking
 - **Payments:** Record/delete customer payments that adjust their due amounts
 - **Investors:** Track investor contributions with cash/product types
-- **Steadfast Courier:** Dynamic API config stored in DB; send sales to Steadfast courier with editable COD amount per order; track status
+- **Steadfast Courier:** Dynamic API config stored in DB; send sales to Steadfast courier with editable COD amount per order; track status; **Return COD Accounting** — returned orders automatically reverse revenue, zero out payment/due, add delivery charge as expense, recalculate profit
 - **Customer Details:** View individual customer transaction history
 - **Invoice System:** Generate printable/downloadable PDF invoices with COD fee and weight display
 
@@ -27,7 +27,7 @@ A professional inventory management system built with Node.js, Express, React, a
 - `users` - name, email (unique), password (bcrypt hash), googleId (nullable)
 - `products` - userId, name, productCode, costPrice, salePrice, stock, **weightPerUnit** (KG, default 0)
 - `stock_history` - productId, previousStock, newStock, changeAmount, reason, createdAt
-- `sales` - userId, totalPrice (includes codFee), customerId, customerName, customerPhone, customerAddress, paidAmount, dueAmount, **totalWeight** (KG), **codFee** (1% of subtotal), courierStatus, consignmentId, isSentToCourier
+- `sales` - userId, totalPrice (includes codFee), customerId, customerName, customerPhone, customerAddress, paidAmount, dueAmount, **totalWeight** (KG), **codFee** (1% of subtotal), **deliveryCharge** (delivery+packing, stored for return accounting), courierStatus, consignmentId, isSentToCourier
 - `sale_items` - saleId, productId, productName, quantity, unitPrice, costPrice, totalPrice
 - `expenses` - userId, description, amount, category
 - `suppliers` - userId, name, phone, address, dueAmount

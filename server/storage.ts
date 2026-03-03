@@ -49,6 +49,7 @@ interface CreateSaleInput {
   totalAmount: number;
   totalWeight: number;
   codFee: number;
+  deliveryCharge?: number;
   items: Array<{
     productId: number;
     productName: string;
@@ -260,9 +261,9 @@ export class DatabaseStorage implements IStorage {
       }
 
       const saleResult = await client.query(
-        `INSERT INTO sales (user_id, total_price, customer_id, customer_name, customer_phone, customer_address, paid_amount, due_amount, total_weight, cod_fee)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-        [input.userId, input.totalAmount, input.customerId || null, input.customerName || null, input.customerPhone || null, input.customerAddress || null, input.paidAmount, input.dueAmount, input.totalWeight, input.codFee]
+        `INSERT INTO sales (user_id, total_price, customer_id, customer_name, customer_phone, customer_address, paid_amount, due_amount, total_weight, cod_fee, delivery_charge)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+        [input.userId, input.totalAmount, input.customerId || null, input.customerName || null, input.customerPhone || null, input.customerAddress || null, input.paidAmount, input.dueAmount, input.totalWeight, input.codFee, input.deliveryCharge || 0]
       );
       const saleRow = saleResult.rows[0];
       const saleId = saleRow.id;
@@ -310,6 +311,7 @@ export class DatabaseStorage implements IStorage {
         dueAmount: saleRow.due_amount,
         totalWeight: saleRow.total_weight,
         codFee: saleRow.cod_fee,
+        deliveryCharge: saleRow.delivery_charge,
         courierStatus: saleRow.courier_status,
         consignmentId: saleRow.consignment_id,
         isSentToCourier: saleRow.is_sent_to_courier,
@@ -729,10 +731,14 @@ export class DatabaseStorage implements IStorage {
     const allExpenses = await db.select().from(expenses).where(eq(expenses.userId, userId));
     const allInvestors = await db.select().from(investors).where(eq(investors.userId, userId));
 
-    const totalSales = allSales.reduce((sum, s) => sum + s.totalPrice, 0);
+    const RETURNED_STATUSES = ["returned", "cancelled", "cancelled_delivery"];
+    const activeSales = allSales.filter(s => !RETURNED_STATUSES.includes(s.courierStatus || ""));
+    const activeSaleIds = new Set(activeSales.map(s => s.id));
+    const totalSales = activeSales.reduce((sum, s) => sum + s.totalPrice, 0);
     const itemSaleIds = new Set(allItems.map((i) => i.saleId));
-    const totalCostOfSold = allItems.reduce((sum, item) => sum + item.costPrice * item.quantity, 0) +
-      allSales.filter((s) => !itemSaleIds.has(s.id) && s.costPrice && s.quantity)
+    const activeItems = allItems.filter(i => activeSaleIds.has(i.saleId));
+    const totalCostOfSold = activeItems.reduce((sum, item) => sum + item.costPrice * item.quantity, 0) +
+      activeSales.filter((s) => !itemSaleIds.has(s.id) && s.costPrice && s.quantity)
         .reduce((sum, s) => sum + (s.costPrice! * s.quantity!), 0);
     const totalInvestment = allProducts.reduce((sum, p) => sum + p.costPrice * p.stock, 0) + totalCostOfSold;
     const currentStockValue = allProducts.reduce((sum, p) => sum + p.salePrice * p.stock, 0);
@@ -747,7 +753,7 @@ export class DatabaseStorage implements IStorage {
     const availableWorkingCapital = totalAllInvestment - totalExpenses;
 
     const allPurchases = await db.select().from(purchases).where(eq(purchases.userId, userId));
-    const totalPaidFromSales = allSales.reduce((sum, s) => sum + (s.paidAmount ?? s.totalPrice), 0);
+    const totalPaidFromSales = activeSales.reduce((sum, s) => sum + (s.paidAmount ?? s.totalPrice), 0);
     const cashInvestorAmount = allInvestors
       .filter((i) => i.investmentType === "cash")
       .reduce((sum, i) => sum + i.investedAmount, 0);
@@ -759,8 +765,8 @@ export class DatabaseStorage implements IStorage {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const todaySalesRows = allSales.filter((s) => s.createdAt && new Date(s.createdAt) >= todayStart);
-    const monthSalesRows = allSales.filter((s) => s.createdAt && new Date(s.createdAt) >= monthStart);
+    const todaySalesRows = activeSales.filter((s) => s.createdAt && new Date(s.createdAt) >= todayStart);
+    const monthSalesRows = activeSales.filter((s) => s.createdAt && new Date(s.createdAt) >= monthStart);
 
     const todaySales = todaySalesRows.reduce((sum, s) => sum + s.totalPrice, 0);
     const monthSales = monthSalesRows.reduce((sum, s) => sum + s.totalPrice, 0);
