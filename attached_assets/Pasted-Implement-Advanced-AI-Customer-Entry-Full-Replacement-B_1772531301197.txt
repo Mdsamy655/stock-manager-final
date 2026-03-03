@@ -1,0 +1,233 @@
+Implement Advanced AI Customer Entry (Full Replacement + Bangla/English Intelligent Parsing)
+
+Objective:
+Replace old Smart Entry with a powerful AI-based Customer Entry system.
+The AI must intelligently detect Name, Phone Number, and Address
+in Bangla or English, regardless of order.
+Existing structure must remain untouched.
+
+---
+
+STEP 1: REMOVE OLD SMART ENTRY
+
+1. Completely remove the existing Smart Entry / previous AI entry field.
+2. Remove its placeholder example text.
+3. Remove its parsing logic.
+4. Do NOT modify other form fields.
+
+---
+
+STEP 2: ADD NEW AI CUSTOMER ENTRY OPTION
+
+1. Add a new tab/button beside:
+   → "New Customer"
+   Named:
+   → "AI Customer Entry"
+
+2. When selected:
+   
+   - Show one large intelligent input box.
+   - Keep it completely empty (no sample text).
+   - Add a "Parse & Fill" button.
+
+3. Keep existing Name, Phone, and Address fields unchanged.
+
+---
+
+STEP 3: PHONE DETECTION (HIGHEST PRIORITY)
+
+1. Detect Bangladeshi mobile numbers (11 digits starting with 01).
+
+2. Support both:
+   
+   - English digits (016XXXXXXXX)
+   - Bangla digits (০১৬XXXXXXXX)
+
+3. Automatically convert Bangla digits to English:
+   ০→0
+   ১→1
+   ২→2
+   ৩→3
+   ৪→4
+   ৫→5
+   ৬→6
+   ৭→7
+   ৮→8
+   ৯→9
+
+4. Conversion must happen BEFORE validation.
+
+5. Store phone number only in English numeric format.
+
+6. Remove detected phone from input before further parsing.
+
+Name and Address must remain in original language.
+
+---
+
+STEP 4: NAME DETECTION (BANGLA + ENGLISH)
+
+AI must understand name can be:
+
+Single word:
+
+- শাহরিয়ার
+- Rahim
+
+Two words:
+
+- শাহরিয়ার আহমেদ
+- Rahim Uddin
+
+Three words:
+
+- মোঃ শাহরিয়ার আহমেদ
+- Md Shahriar Ahmed
+
+Name Detection Rules:
+
+1. Name contains only letters (Bangla or English).
+
+2. Name does NOT contain digits.
+
+3. Name does NOT contain address keywords.
+
+4. Common Bangla prefixes increase name probability:
+   
+   - মোঃ
+   - মো:
+   - Md
+   - Md.
+   - Mohammad
+   - Muhammad
+   - Sheikh
+   - Sk
+
+5. If only one word exists before phone:
+   → Treat it as Name, NOT Address.
+
+6. If no phone exists:
+   → First 1–2 words likely Name.
+   → Remaining likely Address.
+
+---
+
+STEP 5: ADDRESS DETECTION (BANGLA + ENGLISH)
+
+After removing phone and detected name:
+
+Everything remaining should be treated as Address.
+
+Common English address keywords:
+
+- Road
+- Rd
+- Street
+- St
+- House
+- Building
+- Village
+- Market
+- Bazar
+- Union
+- Thana
+- Upazila
+- District
+
+Common Bangla address keywords:
+
+- রোড
+- রাস্তা
+- বাড়ি
+- বাসা
+- গ্রাম
+- পাড়া
+- বাজার
+- ইউনিয়ন
+- থানা
+- উপজেলা
+- জেলা
+- ডাকঘর
+
+Presence of these increases address probability.
+
+Address may:
+
+- Contain numbers
+- Contain commas
+- Be mixed Bangla + English
+
+---
+
+STEP 6: LABEL PRIORITY
+
+If input contains labels:
+
+English:
+
+- Name:
+- Phone:
+- Address:
+
+Bangla:
+
+- নাম:
+- মোবাইল:
+- ঠিকানা:
+
+Then always prioritize labeled extraction.
+
+---
+
+STEP 7: CONFIDENCE & PREVIEW
+
+If AI is uncertain:
+
+- Show detected Name, Phone, Address in preview.
+- Allow user to edit before saving.
+- Do NOT auto-save without confirmation.
+
+---
+
+STEP 8: AUTO-FILL
+
+After successful parsing:
+
+Automatically fill:
+
+- Customer Name field
+- Phone field (English numeric format)
+- Address field
+
+---
+
+IMPORTANT: DO NOT MODIFY
+
+- Existing New Customer form structure
+- Sale logic
+- Delivery logic
+- Courier integration
+- Database schema
+- Save behavior
+
+Only replace old Smart Entry with this advanced AI parsing system.
+
+---
+
+FINAL GOAL
+
+User can paste or type:
+Name + Phone + Address
+In ANY order
+In Bangla or English
+With or without labels
+
+System intelligently understands:
+
+- Which part is Name
+- Which part is Phone (converted to English digits)
+- Which part is Address
+
+Old Smart Entry removed.
+New AI Customer Entry added.
+All existing structure remains intact.

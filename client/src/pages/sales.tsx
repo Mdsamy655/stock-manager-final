@@ -72,15 +72,31 @@ function normalizeBanglaDigits(text: string): string {
   return text.replace(/[০-৯]/g, (ch) => BANGLA_DIGITS[ch] || ch);
 }
 
+const ADDRESS_KEYWORDS = /\b(road|rd|street|st|house|building|village|market|bazar|bazaar|union|thana|upazila|district|block|sector|lane|area|town|city|division|post|po|ps|flat|floor|gate|nagar|para|gali|mohalla|colony)\b|রোড|রাস্তা|বাড়ি|বাসা|গ্রাম|পাড়া|বাজার|ইউনিয়ন|থানা|উপজেলা|জেলা|ডাকঘর|সড়ক|লেন|এলাকা|শহর|বিভাগ|মহল্লা|নগর|ব্লক|সেক্টর|ফ্ল্যাট/i;
+
+const NAME_PREFIXES = /^(মোঃ|মো:|মোহাম্মদ|মুহাম্মদ|শেখ|md\.?|mohammad|muhammad|sheikh|sk\.?|begum|বেগম|মিসেস|mrs\.?|mr\.?|মিস|miss|ms\.?)$/i;
+
+function isAddressWord(word: string): boolean {
+  return ADDRESS_KEYWORDS.test(word);
+}
+
+function isNamePrefix(word: string): boolean {
+  return NAME_PREFIXES.test(word);
+}
+
+function hasDigit(s: string): boolean {
+  return /\d/.test(s);
+}
+
 function parseAICustomerInput(raw: string): { name: string; phone: string; address: string } {
   const text = raw.trim();
   if (!text) return { name: "", phone: "", address: "" };
 
   const normalized = normalizeBanglaDigits(text);
 
-  const labeledName = normalized.match(/(?:name|নাম)\s*[:\-]\s*(.+?)(?=(?:phone|ফোন|address|ঠিকানা)\s*[:\-]|$)/i);
+  const labeledName = normalized.match(/(?:name|নাম)\s*[:\-]\s*(.+?)(?=(?:phone|ফোন|মোবাইল|mobile|number|নম্বর|address|ঠিকানা)\s*[:\-]|$)/i);
   const labeledPhone = normalized.match(/(?:phone|ফোন|মোবাইল|mobile|number|নম্বর)\s*[:\-]\s*(.+?)(?=(?:name|নাম|address|ঠিকানা)\s*[:\-]|$)/i);
-  const labeledAddress = normalized.match(/(?:address|ঠিকানা)\s*[:\-]\s*(.+?)(?=(?:name|নাম|phone|ফোন)\s*[:\-]|$)/i);
+  const labeledAddress = normalized.match(/(?:address|ঠিকানা)\s*[:\-]\s*(.+?)(?=(?:name|নাম|phone|ফোন|মোবাইল|mobile)\s*[:\-]|$)/i);
 
   if (labeledName || labeledPhone || labeledAddress) {
     const phone = labeledPhone ? labeledPhone[1].trim().replace(/[^\d+]/g, "") : "";
@@ -95,90 +111,102 @@ function parseAICustomerInput(raw: string): { name: string; phone: string; addre
   const phoneMatch = normalized.match(phoneRegex);
   const phone = phoneMatch ? phoneMatch[0] : "";
 
-  let remaining = normalized;
+  const origText = text;
+  let remaining = origText;
   if (phoneMatch && phoneMatch.index !== undefined) {
-    remaining = (normalized.substring(0, phoneMatch.index) + " " + normalized.substring(phoneMatch.index + phoneMatch[0].length)).trim();
+    remaining = (origText.substring(0, phoneMatch.index) + " " + origText.substring(phoneMatch.index + phoneMatch[0].length)).trim();
   }
 
-  remaining = remaining.replace(/[,\-|/]+/g, " , ").replace(/\s+/g, " ").trim();
+  remaining = remaining.replace(/\s+/g, " ").trim();
 
-  const segments = remaining.split(/\s*,\s*/).map(s => s.trim()).filter(Boolean);
+  if (!remaining) return { name: "", phone, address: "" };
 
-  let name = "";
-  let address = "";
+  const commaSegments = remaining.split(/\s*,\s*/).map(s => s.trim()).filter(Boolean);
 
-  if (segments.length === 0) {
-    return { name: "", phone, address: "" };
+  if (commaSegments.length >= 3) {
+    const nameIdx = commaSegments.findIndex(s => !hasDigit(s) && !isAddressWord(s) && s.split(/\s+/).length <= 3);
+    if (nameIdx >= 0) {
+      const name = commaSegments[nameIdx];
+      const address = commaSegments.filter((_, i) => i !== nameIdx).join(", ");
+      return { name, phone, address };
+    }
+    return { name: commaSegments[0], phone, address: commaSegments.slice(1).join(", ") };
   }
 
-  if (segments.length === 1) {
-    const words = segments[0].split(/\s+/);
-    if (words.length <= 3) {
-      name = segments[0];
-    } else {
-      const nameWords: string[] = [];
-      const addressWords: string[] = [];
-      let nameComplete = false;
-      for (const w of words) {
-        if (!nameComplete && /^\d+$/.test(w)) {
-          nameComplete = true;
-          addressWords.push(w);
-        } else if (!nameComplete && nameWords.length < 3) {
+  if (commaSegments.length === 2) {
+    const seg0HasAddr = isAddressWord(commaSegments[0]) || hasDigit(commaSegments[0]);
+    const seg1HasAddr = isAddressWord(commaSegments[1]) || hasDigit(commaSegments[1]);
+
+    if (seg0HasAddr && !seg1HasAddr && commaSegments[1].split(/\s+/).length <= 3) {
+      return { name: commaSegments[1], phone, address: commaSegments[0] };
+    }
+    return { name: commaSegments[0], phone, address: commaSegments[1] };
+  }
+
+  const words = remaining.split(/\s+/);
+
+  if (words.length === 1) {
+    return { name: words[0], phone, address: "" };
+  }
+
+  const nameWords: string[] = [];
+  const addressWords: string[] = [];
+  let nameDone = false;
+
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+
+    if (!nameDone) {
+      if (isNamePrefix(w)) {
+        nameWords.push(w);
+        continue;
+      }
+
+      if (hasDigit(w) || isAddressWord(w)) {
+        nameDone = true;
+        addressWords.push(w);
+        continue;
+      }
+
+      if (nameWords.length < 3) {
+        const lookAhead = words.slice(i + 1);
+        const nextIsAddr = lookAhead.length > 0 && (isAddressWord(lookAhead[0]) || hasDigit(lookAhead[0]));
+
+        if (nameWords.length >= 1 && nextIsAddr) {
           nameWords.push(w);
-        } else {
-          nameComplete = true;
-          addressWords.push(w);
+          nameDone = true;
+          continue;
         }
-      }
-      name = nameWords.join(" ");
-      address = addressWords.join(" ");
-    }
-  } else if (segments.length === 2) {
-    name = segments[0];
-    address = segments[1];
-  } else {
-    const shortSegments = segments.filter(s => s.split(/\s+/).length <= 3 && !/\d/.test(s));
-    if (shortSegments.length > 0) {
-      name = shortSegments[0];
-      address = segments.filter(s => s !== shortSegments[0]).join(", ");
-    } else {
-      name = segments[0];
-      address = segments.slice(1).join(", ");
-    }
-  }
 
-  if (phone && !name && !address) {
-    return { name: "", phone, address: "" };
-  }
+        nameWords.push(w);
 
-  const origRemaining = text.replace(/[০-৯]/g, "");
-  if (origRemaining !== remaining.replace(/[০-৯]/g, "")) {
-    const origNoPhone = phoneMatch && phoneMatch.index !== undefined
-      ? (text.substring(0, phoneMatch.index) + " " + text.substring(phoneMatch.index + phoneMatch[0].length)).trim()
-      : text;
-    const origClean = origNoPhone.replace(/[,\-|/]+/g, " , ").replace(/\s+/g, " ").trim();
-    const origSegments = origClean.split(/\s*,\s*/).map(s => s.trim()).filter(Boolean);
-
-    if (origSegments.length === segments.length) {
-      if (origSegments.length === 1) {
-        const words = origSegments[0].split(/\s+/);
-        const nameLen = name.split(/\s+/).length;
-        name = words.slice(0, nameLen).join(" ");
-        address = words.slice(nameLen).join(" ");
-      } else if (origSegments.length === 2) {
-        name = origSegments[0];
-        address = origSegments[1];
+        if (nameWords.filter(nw => !isNamePrefix(nw)).length >= 2 && i + 1 < words.length) {
+          const restHasAddr = words.slice(i + 1).some(rw => isAddressWord(rw) || hasDigit(rw));
+          if (restHasAddr) {
+            nameDone = true;
+          }
+        }
       } else {
-        const idx = segments.indexOf(name);
-        if (idx >= 0) {
-          name = origSegments[idx];
-          address = origSegments.filter((_, i) => i !== idx).join(", ");
-        }
+        nameDone = true;
+        addressWords.push(w);
       }
+    } else {
+      addressWords.push(w);
     }
   }
 
-  return { name: name.trim(), phone, address: address.trim() };
+  if (nameWords.length === 0 && addressWords.length > 0) {
+    const nonAddrIdx = addressWords.findIndex(w => !isAddressWord(w) && !hasDigit(w));
+    if (nonAddrIdx >= 0) {
+      nameWords.push(...addressWords.splice(nonAddrIdx, 1));
+    }
+  }
+
+  return {
+    name: nameWords.join(" ").trim(),
+    phone,
+    address: addressWords.join(" ").trim(),
+  };
 }
 
 export default function Sales() {
@@ -197,6 +225,7 @@ export default function Sales() {
   const [newCustomerPhone, setNewCustomerPhone] = useState("");
   const [newCustomerAddress, setNewCustomerAddress] = useState("");
   const [smartInput, setSmartInput] = useState("");
+  const [aiPreview, setAiPreview] = useState<{ name: string; phone: string; address: string } | null>(null);
   const [saveToCustomerList, setSaveToCustomerList] = useState(true);
   const [paidAmount, setPaidAmount] = useState<string>("");
   const [addCodFee, setAddCodFee] = useState(false);
@@ -576,7 +605,7 @@ export default function Sales() {
                     type="button"
                     variant={customerMode === "ai" ? "default" : "outline"}
                     size="sm"
-                    onClick={() => { setCustomerMode("ai"); setCustomerId(""); setSmartInput(""); }}
+                    onClick={() => { setCustomerMode("ai"); setCustomerId(""); setSmartInput(""); setAiPreview(null); }}
                     data-testid="button-customer-ai"
                   >
                     <Sparkles className="h-3.5 w-3.5 mr-1" />
@@ -605,32 +634,95 @@ export default function Sales() {
                       <div className="space-y-2">
                         <Label className="text-xs text-muted-foreground flex items-center gap-1">
                           <Sparkles className="h-3 w-3 text-amber-500" />
-                          Paste or type name, phone & address in any format
+                          AI Customer Entry — type or paste in any format (Bangla / English)
                         </Label>
                         <textarea
                           value={smartInput}
-                          onChange={(e) => setSmartInput(e.target.value)}
+                          onChange={(e) => { setSmartInput(e.target.value); setAiPreview(null); }}
                           rows={3}
                           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           data-testid="input-ai-customer"
                         />
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="w-full"
-                          disabled={!smartInput.trim()}
-                          onClick={() => {
-                            const parsed = parseAICustomerInput(smartInput);
-                            if (parsed.name) setNewCustomerName(parsed.name);
-                            if (parsed.phone) setNewCustomerPhone(parsed.phone);
-                            if (parsed.address) setNewCustomerAddress(parsed.address);
-                            setSmartInput("");
-                          }}
-                          data-testid="button-parse-fill"
-                        >
-                          <Sparkles className="h-4 w-4 mr-1" />
-                          Parse & Fill
-                        </Button>
+                        {!aiPreview ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="w-full"
+                            disabled={!smartInput.trim()}
+                            onClick={() => {
+                              const parsed = parseAICustomerInput(smartInput);
+                              setAiPreview(parsed);
+                            }}
+                            data-testid="button-parse-fill"
+                          >
+                            <Sparkles className="h-4 w-4 mr-1" />
+                            Parse & Fill
+                          </Button>
+                        ) : (
+                          <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 p-3">
+                            <p className="text-xs font-medium text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                              <Sparkles className="h-3 w-3" />
+                              Review detected values — edit if needed, then confirm
+                            </p>
+                            <div className="space-y-1.5">
+                              <div>
+                                <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Name</label>
+                                <Input
+                                  value={aiPreview.name}
+                                  onChange={(e) => setAiPreview({ ...aiPreview, name: e.target.value })}
+                                  className="h-8 text-sm"
+                                  data-testid="input-ai-preview-name"
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Phone</label>
+                                  <Input
+                                    value={aiPreview.phone}
+                                    onChange={(e) => setAiPreview({ ...aiPreview, phone: e.target.value })}
+                                    className="h-8 text-sm"
+                                    data-testid="input-ai-preview-phone"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Address</label>
+                                  <Input
+                                    value={aiPreview.address}
+                                    onChange={(e) => setAiPreview({ ...aiPreview, address: e.target.value })}
+                                    className="h-8 text-sm"
+                                    data-testid="input-ai-preview-address"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => {
+                                  if (aiPreview.name) setNewCustomerName(aiPreview.name);
+                                  if (aiPreview.phone) setNewCustomerPhone(aiPreview.phone);
+                                  if (aiPreview.address) setNewCustomerAddress(aiPreview.address);
+                                  setSmartInput("");
+                                  setAiPreview(null);
+                                }}
+                                data-testid="button-ai-confirm"
+                              >
+                                Confirm & Fill
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setAiPreview(null)}
+                                data-testid="button-ai-cancel"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                     <div>
