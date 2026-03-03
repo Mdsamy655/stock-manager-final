@@ -84,6 +84,7 @@ export default function Sales() {
   const [saveToCustomerList, setSaveToCustomerList] = useState(true);
   const [paidAmount, setPaidAmount] = useState<string>("");
   const [addCodFee, setAddCodFee] = useState(false);
+  const [weightOverride, setWeightOverride] = useState<string>("");
 
   const { data: salesList, isLoading } = useQuery<SaleWithItems[]>({
     queryKey: ["/api/sales"],
@@ -109,6 +110,7 @@ export default function Sales() {
     setSaveToCustomerList(true);
     setPaidAmount("");
     setAddCodFee(false);
+    setWeightOverride("");
   };
 
   const addProductByCode = useCallback((code: string) => {
@@ -192,16 +194,19 @@ export default function Sales() {
 
   const codFeeAmount = addCodFee ? Math.round(subtotal * 0.01 * 100) / 100 : 0;
 
-  const deliveryCharge = totalWeight > 0
-    ? totalWeight < 0.5
+  const autoWeight = totalWeight;
+  const effectiveWeight = weightOverride !== "" ? Math.max(0, Number(weightOverride) || 0) : autoWeight;
+
+  const deliveryCharge = effectiveWeight > 0
+    ? effectiveWeight <= 0.5
       ? 110
-      : totalWeight <= 1
+      : effectiveWeight <= 1
         ? 130
-        : Math.round((130 + (totalWeight - 1) * 20) * 100) / 100
+        : 130 + Math.ceil(effectiveWeight - 1) * 20
     : 0;
 
-  const packingCharge = totalWeight > 0
-    ? totalWeight > 5 ? 15 : 10
+  const packingCharge = effectiveWeight > 0
+    ? effectiveWeight > 5 ? 15 : 10
     : 0;
 
   const grandTotal = subtotal + codFeeAmount + deliveryCharge + packingCharge;
@@ -559,11 +564,33 @@ export default function Sales() {
                         <span className="font-medium">{formatTaka(codFeeAmount)}</span>
                       </div>
                     )}
-                    {totalWeight > 0 && (
+                    {autoWeight > 0 && (
                       <>
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Product Weight:</span>
+                          <span className="font-medium text-muted-foreground">{autoWeight.toFixed(2)} KG</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground text-xs flex-1">Total Weight (editable):</span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            inputMode="decimal"
+                            className="w-24 h-7 text-xs text-right"
+                            placeholder={autoWeight.toFixed(2)}
+                            value={weightOverride}
+                            onChange={(e) => setWeightOverride(e.target.value)}
+                            data-testid="input-weight-override"
+                          />
+                          <span className="text-xs text-muted-foreground">KG</span>
+                        </div>
+                        {weightOverride !== "" && Number(weightOverride) !== autoWeight && (
+                          <p className="text-xs text-amber-600">Weight adjusted from {autoWeight.toFixed(2)} KG to {effectiveWeight.toFixed(2)} KG</p>
+                        )}
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Total Weight:</span>
-                          <span className="font-medium" data-testid="text-total-weight">{totalWeight.toFixed(2)} KG</span>
+                          <span className="text-muted-foreground">Effective Weight:</span>
+                          <span className="font-medium" data-testid="text-total-weight">{effectiveWeight.toFixed(2)} KG</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Delivery Charge:</span>
