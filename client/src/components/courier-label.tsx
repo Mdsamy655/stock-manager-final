@@ -21,6 +21,84 @@ function formatLabelDate(date: string | Date | null): string {
   return new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+const PRINT_STYLES = `
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; color: #1a1a1a; }
+  @page { size: A4 portrait; margin: 10mm 10mm; }
+  .label-page { width: 100%; }
+  .label-card {
+    width: 100%;
+    border: 1.5px solid #333;
+    border-radius: 4px;
+    overflow: hidden;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    margin-bottom: 8mm;
+  }
+  .label-header {
+    background: #1a1a1a;
+    color: #fff;
+    padding: 4px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .label-header-left { font-size: 7px; opacity: 0.85; }
+  .label-header-right { font-size: 7px; opacity: 0.85; text-align: right; }
+  .parcel-id-row {
+    padding: 8px 10px;
+    text-align: center;
+    border-bottom: 1px solid #ccc;
+    background: #f5f5f5;
+  }
+  .parcel-id-label { font-size: 7px; text-transform: uppercase; color: #666; letter-spacing: 1px; margin-bottom: 2px; }
+  .parcel-id-value { font-size: 28px; font-weight: 900; letter-spacing: 3px; color: #000; line-height: 1.1; }
+  .body-row {
+    display: flex;
+    border-bottom: 1px solid #ddd;
+  }
+  .body-section {
+    flex: 1;
+    padding: 5px 10px;
+  }
+  .body-section + .body-section { border-left: 1px solid #ddd; }
+  .section-title { font-size: 6.5px; font-weight: 700; text-transform: uppercase; color: #999; letter-spacing: 0.8px; margin-bottom: 2px; }
+  .section-name { font-size: 10px; font-weight: 600; line-height: 1.2; }
+  .section-detail { font-size: 8.5px; color: #444; line-height: 1.3; margin-top: 1px; }
+  .cod-qr-row {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #ddd;
+  }
+  .cod-section {
+    flex: 1;
+    text-align: center;
+    padding: 6px 10px;
+  }
+  .cod-label { font-size: 7px; text-transform: uppercase; color: #888; letter-spacing: 0.8px; margin-bottom: 1px; }
+  .cod-value { font-size: 18px; font-weight: 800; color: #dc2626; }
+  .qr-section {
+    padding: 4px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-left: 1px solid #ddd;
+  }
+  .footer-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 10px;
+    font-size: 7px;
+    color: #777;
+    background: #fafafa;
+  }
+  .footer-row strong { color: #333; }
+  @media print {
+    body { padding: 0 !important; }
+    .label-card { margin-bottom: 8mm; }
+  }
+`;
+
 interface CourierLabelProps {
   sale: SaleWithItems;
   open: boolean;
@@ -39,25 +117,30 @@ export default function CourierLabel({ sale, open, onOpenChange }: CourierLabelP
     if (companyAddress) localStorage.setItem("label_company_address", companyAddress);
   };
 
+  const buildLabelHtml = () => {
+    const content = labelRef.current;
+    if (!content) return "";
+    return content.querySelector(".label-card")?.outerHTML || "";
+  };
+
   const handlePrint = () => {
     saveSenderInfo();
-    const content = labelRef.current;
-    if (!content) return;
+    const singleLabel = buildLabelHtml();
+    if (!singleLabel) return;
 
-    const printWindow = window.open("", "_blank", "width=800,height=600");
+    const printWindow = window.open("", "_blank", "width=800,height=1000");
     if (!printWindow) return;
+
+    const threeLabels = `${singleLabel}${singleLabel}${singleLabel}`;
 
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
       <head>
         <title>Courier Label - ${sale.consignmentId || sale.id}</title>
-        <style>
-          body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 15px; color: #1a1a1a; }
-          @media print { body { padding: 0; } }
-        </style>
+        <style>${PRINT_STYLES}</style>
       </head>
-      <body>${content.innerHTML}</body>
+      <body><div class="label-page">${threeLabels}</div></body>
       </html>
     `);
     printWindow.document.close();
@@ -67,14 +150,23 @@ export default function CourierLabel({ sale, open, onOpenChange }: CourierLabelP
 
   const handleDownloadPDF = async () => {
     saveSenderInfo();
-    const content = labelRef.current;
-    if (!content) return;
+    const singleLabel = buildLabelHtml();
+    if (!singleLabel) return;
+
+    const threeLabels = `${singleLabel}${singleLabel}${singleLabel}`;
+
+    const container = document.createElement("div");
+    container.style.cssText = "position:absolute;left:-9999px;top:0;width:190mm;background:#fff;padding:0;";
+    container.innerHTML = `<style>${PRINT_STYLES}</style><div class="label-page">${threeLabels}</div>`;
+    document.body.appendChild(container);
 
     const html2canvas = (await import("html2canvas")).default;
     const { jsPDF } = await import("jspdf");
 
-    const canvas = await html2canvas(content, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
-    const imgData = canvas.toDataURL("image/jpeg", 0.98);
+    const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: "#ffffff", width: 718 });
+    document.body.removeChild(container);
+
+    const imgData = canvas.toDataURL("image/jpeg", 0.95);
     const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
     const pdfWidth = pdf.internal.pageSize.getWidth() - 20;
     const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
@@ -83,21 +175,22 @@ export default function CourierLabel({ sale, open, onOpenChange }: CourierLabelP
   };
 
   const codAmount = sale.paidAmount === 0 ? sale.totalPrice : sale.dueAmount > 0 ? sale.dueAmount : sale.totalPrice;
+  const parcelId = sale.consignmentId || "N/A";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Printer className="h-5 w-5" />
             Courier Label
           </DialogTitle>
           <DialogDescription>
-            Configure sender details and print or download the shipping label.
+            Configure sender details. Prints 3 labels per A4 page.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 mb-4">
+        <div className="space-y-3 mb-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div>
               <label className="text-xs text-muted-foreground">Sender Name</label>
@@ -132,7 +225,7 @@ export default function CourierLabel({ sale, open, onOpenChange }: CourierLabelP
         <div className="flex gap-2 justify-end mb-3">
           <Button variant="outline" onClick={handlePrint} data-testid="button-print-label">
             <Printer className="h-4 w-4 mr-2" />
-            Print Label
+            Print (3x A4)
           </Button>
           <Button onClick={handleDownloadPDF} data-testid="button-download-label-pdf">
             <Download className="h-4 w-4 mr-2" />
@@ -140,63 +233,59 @@ export default function CourierLabel({ sale, open, onOpenChange }: CourierLabelP
           </Button>
         </div>
 
-        <div className="border rounded-lg bg-white">
-          <div ref={labelRef} style={{ padding: "24px", fontFamily: "'Segoe UI', Arial, sans-serif", color: "#1a1a1a", background: "#fff" }}>
-            <div style={{ border: "2px solid #333", borderRadius: "8px", overflow: "hidden" }}>
-              <div style={{ background: "#1a1a1a", color: "#fff", padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <div style={{ fontSize: "18px", fontWeight: "bold", letterSpacing: "1px" }}>COURIER LABEL</div>
-                  <div style={{ fontSize: "11px", opacity: 0.8, marginTop: "2px" }}>Parcel ID: {sale.consignmentId || "N/A"}</div>
+        <div className="border rounded-lg bg-white p-3">
+          <p className="text-xs text-muted-foreground mb-2 text-center">Label Preview (prints 3 copies per A4 page)</p>
+          <div ref={labelRef}>
+            <style>{PRINT_STYLES}</style>
+            <div className="label-card">
+              <div className="label-header">
+                <div className="label-header-left">
+                  COURIER LABEL &middot; Sale #{sale.id}
                 </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: "11px", opacity: 0.8 }}>Sale #{sale.id}</div>
-                  <div style={{ fontSize: "11px", opacity: 0.8 }}>{formatLabelDate(sale.createdAt)}</div>
+                <div className="label-header-right">
+                  {formatLabelDate(sale.createdAt)}
                 </div>
               </div>
 
-              <div style={{ display: "flex", borderBottom: "1px solid #ddd" }}>
+              <div className="parcel-id-row">
+                <div className="parcel-id-label">Parcel ID / Consignment</div>
+                <div className="parcel-id-value" data-testid="text-label-parcel-id">{parcelId}</div>
+              </div>
+
+              <div className="body-row">
                 {(companyName || companyPhone || companyAddress) && (
-                  <div style={{ flex: 1, padding: "12px 16px", borderRight: "1px solid #ddd" }}>
-                    <div style={{ fontSize: "10px", fontWeight: "bold", textTransform: "uppercase", color: "#888", marginBottom: "6px", letterSpacing: "1px" }}>From / Sender</div>
-                    {companyName && <div style={{ fontSize: "14px", fontWeight: "600" }} data-testid="text-label-sender-name">{companyName}</div>}
-                    {companyPhone && <div style={{ fontSize: "12px", color: "#555", marginTop: "2px" }}>{companyPhone}</div>}
-                    {companyAddress && <div style={{ fontSize: "12px", color: "#555", marginTop: "2px" }}>{companyAddress}</div>}
+                  <div className="body-section">
+                    <div className="section-title">From / Sender</div>
+                    {companyName && <div className="section-name" data-testid="text-label-sender-name">{companyName}</div>}
+                    {companyPhone && <div className="section-detail">{companyPhone}</div>}
+                    {companyAddress && <div className="section-detail">{companyAddress}</div>}
                   </div>
                 )}
-                <div style={{ flex: 1, padding: "12px 16px" }}>
-                  <div style={{ fontSize: "10px", fontWeight: "bold", textTransform: "uppercase", color: "#888", marginBottom: "6px", letterSpacing: "1px" }}>To / Recipient</div>
-                  <div style={{ fontSize: "14px", fontWeight: "600" }} data-testid="text-label-customer-name">{sale.customerName || "N/A"}</div>
-                  <div style={{ fontSize: "13px", color: "#333", marginTop: "2px" }} data-testid="text-label-customer-phone">{sale.customerPhone || ""}</div>
-                  <div style={{ fontSize: "12px", color: "#555", marginTop: "2px", lineHeight: "1.4" }} data-testid="text-label-customer-address">{sale.customerAddress || ""}</div>
+                <div className="body-section">
+                  <div className="section-title">To / Recipient</div>
+                  <div className="section-name" data-testid="text-label-customer-name">{sale.customerName || "N/A"}</div>
+                  <div className="section-detail" data-testid="text-label-customer-phone">{sale.customerPhone || ""}</div>
+                  <div className="section-detail" data-testid="text-label-customer-address">{sale.customerAddress || ""}</div>
                 </div>
               </div>
 
-              <div style={{ display: "flex", borderBottom: "1px solid #ddd" }}>
-                <div style={{ flex: 1, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: "10px", fontWeight: "bold", textTransform: "uppercase", color: "#888", marginBottom: "6px", letterSpacing: "1px" }}>COD Amount</div>
-                    <div style={{ fontSize: "28px", fontWeight: "bold", color: "#dc2626", letterSpacing: "1px" }} data-testid="text-label-cod-amount">
-                      {formatTaka(codAmount)}
-                    </div>
-                  </div>
+              <div className="cod-qr-row">
+                <div className="cod-section">
+                  <div className="cod-label">COD Amount</div>
+                  <div className="cod-value" data-testid="text-label-cod-amount">{formatTaka(codAmount)}</div>
                 </div>
                 {sale.consignmentId && (
-                  <div style={{ flex: 1, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "center", borderLeft: "1px solid #ddd" }}>
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{ display: "flex", justifyContent: "center", marginBottom: "4px" }}>
-                        <QRCodeSVG value={sale.consignmentId} size={100} level="M" />
-                      </div>
-                      <div style={{ fontSize: "10px", color: "#888", marginTop: "4px" }}>Scan to verify</div>
-                    </div>
+                  <div className="qr-section">
+                    <QRCodeSVG value={sale.consignmentId} size={52} level="M" />
                   </div>
                 )}
               </div>
 
-              <div style={{ padding: "10px 16px", background: "#f9f9f9", display: "flex", justifyContent: "space-between", fontSize: "11px", color: "#666" }}>
-                <span>Consignment: <strong style={{ color: "#333" }}>{sale.consignmentId || "N/A"}</strong></span>
-                <span>Items: <strong style={{ color: "#333" }}>{sale.items.length}</strong></span>
+              <div className="footer-row">
+                <span>Consignment: <strong>{parcelId}</strong></span>
+                <span>Items: <strong>{sale.items.length}</strong></span>
                 {(sale.totalWeight ?? 0) > 0 && (
-                  <span>Weight: <strong style={{ color: "#333" }}>{(sale.totalWeight ?? 0).toFixed(2)} KG</strong></span>
+                  <span>Weight: <strong>{(sale.totalWeight ?? 0).toFixed(2)} KG</strong></span>
                 )}
               </div>
             </div>
