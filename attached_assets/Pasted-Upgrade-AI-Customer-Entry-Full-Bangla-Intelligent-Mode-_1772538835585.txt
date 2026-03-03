@@ -1,0 +1,215 @@
+Upgrade AI Customer Entry – Full Bangla Intelligent Mode (Keep All Previous Rules Active)
+
+Objective:
+AI must fully understand Bangla customer input.
+It must detect Name, Phone, Address even if written fully in Bangla.
+All previous parsing rules must remain active.
+
+---
+
+SECTION 1: BANGLA PHONE NUMBER INTELLIGENCE
+
+1. Detect Bangla digits:
+   ০ ১ ২ ৩ ৪ ৫ ৬ ৭ ৮ ৯
+
+2. Automatically convert to English:
+   ০→0
+   ১→1
+   ২→2
+   ৩→3
+   ৪→4
+   ৫→5
+   ৬→6
+   ৭→7
+   ৮→8
+   ৯→9
+
+3. Conversion must happen BEFORE validation.
+
+Example:
+মোবাইল: ০১৭৯০৫৭৪৫৫৮
+→ Store as:
+01790574558
+
+4. Only phone digits convert.
+   Name and Address remain in original language.
+
+---
+
+SECTION 2: BANGLA LABEL DETECTION (STRICT PRIORITY)
+
+If input contains:
+
+নাম:
+মোবাইল:
+ফোন:
+ঠিকানা:
+গ্রাম:
+পোস্ট:
+থানা:
+উপজেলা:
+জেলা:
+
+Always prioritize labeled extraction.
+
+Example:
+
+নাম : আকাশ
+ঠিকানা : সাহেবের হাট, বরিশাল সদর, বরিশাল
+মোবাইল : ০১৭৯০৫৭৪৫৫৮
+
+→ Name = আকাশ
+→ Phone = 01790574558
+→ Address = সাহেবের হাট, বরিশাল সদর, বরিশাল
+
+Ignore order.
+Ignore line position.
+
+---
+
+SECTION 3: BANGLA NAME DETECTION LOGIC
+
+Bangla Name characteristics:
+
+1. Usually 1–3 words.
+2. Contains no numbers.
+3. Does not contain address keywords.
+4. Usually short (less than 30 characters).
+5. Appears first or near phone.
+
+If first short line has no numbers
+→ Strong Name candidate.
+
+If input format:
+
+আকাশ ০১৭৯০৫৭৪৫৫৮ বরিশাল সদর
+
+→ First word = Name
+→ Middle number = Phone
+→ Rest = Address
+
+---
+
+SECTION 4: BANGLA ADDRESS INTELLIGENCE
+
+Create internal Bangla location dictionary including:
+
+ঢাকা
+চট্টগ্রাম
+কুমিল্লা
+বরিশাল
+খুলনা
+রাজশাহী
+গাজীপুর
+নোয়াখালী
+ঝিনাইদহ
+হাজীগঞ্জ
+মিরপুর
+সাভার
+নারায়ণগঞ্জ
+হাটহাজারী
+মিরসরাই
+
+And address keywords:
+
+রোড
+রাস্তা
+বাড়ি
+বাসা
+গ্রাম
+পাড়া
+বাজার
+হাট
+ইউনিয়ন
+থানা
+উপজেলা
+জেলা
+সদর
+পোস্ট
+
+If segment contains these words
+→ Increase Address score.
+
+Long sentence
+→ Address probability high.
+
+---
+
+SECTION 5: REAL BANGLA STRUCTURE HANDLING
+
+Case 1:
+আকাশ
+বরিশাল সদর
+০১৭৯০৫৭৪৫৫৮
+
+→ Name first line
+→ Address middle
+→ Phone last
+
+Case 2:
+০১৭৯০৫৭৪৫৫৮
+বরিশাল সদর
+আকাশ
+
+→ Phone detected
+→ Short single word = Name
+→ Remaining = Address
+
+Case 3:
+নাম আকাশ মোবাইল ০১৭৯০৫৭৪৫৫৮ ঠিকানা বরিশাল সদর
+
+→ Extract by labels
+
+Case 4:
+আকাশ বরিশাল সদর ০১৭৯০৫৭৪৫৫৮
+
+→ First short word = Name
+→ Phone detected
+→ Remaining words = Address
+
+---
+
+SECTION 6: CONFIDENCE SYSTEM
+
+If detection unclear:
+
+Show preview:
+Name:
+Phone:
+Address:
+
+Allow manual correction.
+
+---
+
+IMPORTANT
+
+Do NOT remove:
+
+- Previous English parsing rules
+- Previous mixed-language detection
+- Existing form layout
+- Sale logic
+- Courier logic
+- Database structure
+
+This update only strengthens Bangla parsing intelligence.
+
+---
+
+FINAL GOAL
+
+User may write fully in Bangla:
+
+নাম, ফোন, ঠিকানা যেভাবেই লিখুক
+
+AI must:
+
+✔ Detect name correctly
+✔ Convert Bangla phone to English digits
+✔ Detect address intelligently
+✔ Handle any order
+✔ Handle multi-line input
+✔ Handle labeled and unlabeled formats
+
+AI must behave like a human Bangladeshi operator.

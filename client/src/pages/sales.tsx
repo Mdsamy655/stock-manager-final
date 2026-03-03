@@ -72,27 +72,44 @@ function normalizeBanglaDigits(text: string): string {
   return text.replace(/[০-৯]/g, (ch) => BANGLA_DIGITS[ch] || ch);
 }
 
-const ADDRESS_KEYWORDS = /\b(road|rd|street|st|house|building|village|market|bazar|bazaar|union|thana|upazila|district|block|sector|lane|area|town|city|division|post|po|ps|flat|floor|gate|nagar|para|gali|mohalla|colony|paikpara|corner|opposite|palace|dokkhin|purbo|uttor|poschim|madarsha|sadar|sador|potti|pottee|hat|ghat|mor|bridge|tower|plaza|center|centre|complex|dighir|er)\b|রোড|রাস্তা|বাড়ি|বাসা|গ্রাম|পাড়া|বাজার|ইউনিয়ন|থানা|উপজেলা|জেলা|ডাকঘর|সড়ক|লেন|এলাকা|শহর|বিভাগ|মহল্লা|নগর|ব্লক|সেক্টর|ফ্ল্যাট|সদর|হাট|ঘাট|মোড়|পট্টি|টাওয়ার|কমপ্লেক্স|দক্ষিণ|পূর্ব|উত্তর|পশ্চিম/i;
+const ADDRESS_KEYWORDS = /\b(road|rd|street|st|house|building|village|market|bazar|bazaar|union|thana|upazila|district|block|sector|lane|area|town|city|division|post|po|ps|flat|floor|gate|nagar|para|gali|mohalla|colony|paikpara|corner|opposite|palace|dokkhin|purbo|uttor|poschim|madarsha|sadar|sador|potti|pottee|hat|ghat|mor|bridge|tower|plaza|center|centre|complex|dighir|er)\b|রোড|রাস্তা|বাড়ি|বাসা|গ্রাম|পাড়া|বাজার|ইউনিয়ন|থানা|উপজেলা|জেলা|ডাকঘর|সড়ক|লেন|এলাকা|শহর|বিভাগ|মহল্লা|নগর|ব্লক|সেক্টর|ফ্ল্যাট|সদর|হাট|ঘাট|মোড়|পট্টি|টাওয়ার|কমপ্লেক্স|দক্ষিণ|পূর্ব|উত্তর|পশ্চিম|পোস্ট/i;
 
-const DISTRICT_NAMES = /\b(dhaka|chittagong|chattogram|ctg|rajshahi|khulna|sylhet|barishal|barisal|rangpur|mymensingh|comilla|cumilla|noakhali|feni|lakshmipur|cox|bogra|bogura|dinajpur|jessore|jashore|narsingdi|narayanganj|gazipur|tangail|manikganj|maniknogor|munshiganj|faridpur|madaripur|gopalganj|shariatpur|rajbari|brahmanbaria|habiganj|sunamganj|kishoreganj|netrokona|sherpur|jamalpur|pabna|sirajganj|natore|nawabganj|chapainawabganj|joypurhat|naogaon|kushtia|chuadanga|meherpur|jhenaidah|zhinaidah|narail|magura|satkhira|bagerhat|pirojpur|barguna|patuakhali|bhola|jhalokati|kurigram|nilphamari|lalmonirhat|gaibandha|thakurgaon|panchagarh|bandarban|rangamati|khagrachhari|moulvibazar|sunamganj|mugdha|mirpur|hathazari|mirsarai|hajiganj|rajgonj)\b|কুমিল্লা|ঢাকা|চট্টগ্রাম|রাজশাহী|খুলনা|সিলেট|বরিশাল|রংপুর|ময়মনসিংহ|ঝিনাইদহ|হাজীগঞ্জ|মিরপুর|মুগদা|হাটহাজারী|মীরসরাই|রাজগঞ্জ|মানিকনগর/i;
+const DISTRICT_NAMES = /\b(dhaka|chittagong|chattogram|ctg|rajshahi|khulna|sylhet|barishal|barisal|rangpur|mymensingh|comilla|cumilla|noakhali|feni|lakshmipur|cox|bogra|bogura|dinajpur|jessore|jashore|narsingdi|narayanganj|gazipur|tangail|manikganj|maniknogor|munshiganj|faridpur|madaripur|gopalganj|shariatpur|rajbari|brahmanbaria|habiganj|sunamganj|kishoreganj|netrokona|sherpur|jamalpur|pabna|sirajganj|natore|nawabganj|chapainawabganj|joypurhat|naogaon|kushtia|chuadanga|meherpur|jhenaidah|zhinaidah|narail|magura|satkhira|bagerhat|pirojpur|barguna|patuakhali|bhola|jhalokati|kurigram|nilphamari|lalmonirhat|gaibandha|thakurgaon|panchagarh|bandarban|rangamati|khagrachhari|moulvibazar|sunamganj|mugdha|mirpur|hathazari|mirsarai|hajiganj|rajgonj|savar|chandpur|laxmipur|manikgonj|munshigonj|nawabgonj)\b|কুমিল্লা|ঢাকা|চট্টগ্রাম|রাজশাহী|খুলনা|সিলেট|বরিশাল|রংপুর|ময়মনসিংহ|ঝিনাইদহ|হাজীগঞ্জ|মিরপুর|মুগদা|হাটহাজারী|মীরসরাই|রাজগঞ্জ|মানিকনগর|গাজীপুর|নোয়াখালী|সাভার|নারায়ণগঞ্জ|টাঙ্গাইল|মানিকগঞ্জ|মুন্সীগঞ্জ|ফরিদপুর|মাদারীপুর|গোপালগঞ্জ|শরীয়তপুর|রাজবাড়ী|ব্রাহ্মণবাড়িয়া|হবিগঞ্জ|সুনামগঞ্জ|কিশোরগঞ্জ|নেত্রকোনা|শেরপুর|জামালপুর|পাবনা|সিরাজগঞ্জ|নাটোর|নবাবগঞ্জ|জয়পুরহাট|নওগাঁ|কুষ্টিয়া|চুয়াডাঙ্গা|মেহেরপুর|নড়াইল|মাগুরা|সাতক্ষীরা|বাগেরহাট|পিরোজপুর|বরগুনা|পটুয়াখালী|ভোলা|ঝালকাঠি|কুড়িগ্রাম|নীলফামারী|লালমনিরহাট|গাইবান্ধা|ঠাকুরগাঁও|পঞ্চগড়|বান্দরবান|রাঙ্গামাটি|খাগড়াছড়ি|মৌলভীবাজার|চাঁদপুর|লক্ষ্মীপুর|ফেনী/i;
+
+const BANGLA_ADDR_LABELS = /^(গ্রাম|পোস্ট|থানা|উপজেলা|জেলা)$/;
 
 const NAME_PREFIXES = /^(মোঃ|মো:|মোহাম্মদ|মুহাম্মদ|শেখ|md\.?|mohammad|muhammad|sheikh|sk\.?|begum|বেগম|মিসেস|mrs\.?|mr\.?|মিস|miss|ms\.?)$/i;
 
+const INLINE_LABEL_PATTERN = /(?:^|\s)(নাম|name)\s+(.+?)(?=\s+(?:মোবাইল|ফোন|phone|mobile|ঠিকানা|address)[\s:]|$)/i;
+const INLINE_PHONE_LABEL = /(?:^|\s)(?:মোবাইল|ফোন|phone|mobile)\s*[:\s]\s*([০-৯\d+]+)/i;
+const INLINE_ADDR_LABEL = /(?:^|\s)(?:ঠিকানা|address)\s+(.+?)$/i;
+
 function isAddressLike(s: string): boolean {
-  const lower = s.toLowerCase();
-  return ADDRESS_KEYWORDS.test(lower) || DISTRICT_NAMES.test(lower) || /\d+\s*[\/\\]\s*\d+/.test(s) || (s.split(/\s+/).length > 3 && /[,\-]/.test(s));
+  return ADDRESS_KEYWORDS.test(s) || DISTRICT_NAMES.test(s) || /\d+\s*[\/\\]\s*\d+/.test(s) || (s.split(/\s+/).length > 3 && /[,\-]/.test(s));
 }
 
 function isNameLike(s: string): boolean {
   const words = s.split(/\s+/);
   if (words.length > 4) return false;
-  if (/\d/.test(s)) return false;
+  if (/\d/.test(normalizeBanglaDigits(s)) && !/^[০-৯]+$/.test(s)) {
+    if (/[0-9]/.test(s)) return false;
+  }
+  if (/[0-9]/.test(s)) return false;
   if (ADDRESS_KEYWORDS.test(s) || DISTRICT_NAMES.test(s)) return false;
+  if (s.length > 40) return false;
   return true;
 }
 
 function isPhoneLine(s: string): boolean {
-  return /^\s*(?:(?:\+?880)|0)1[3-9]\d{8}\s*$/.test(normalizeBanglaDigits(s));
+  const n = normalizeBanglaDigits(s.trim());
+  return /^(?:(?:\+?880)|0)1[3-9]\d{8}$/.test(n);
+}
+
+function mergeAddressSubLabels(address: string): string {
+  return address
+    .replace(/(?:গ্রাম|পোস্ট|থানা|উপজেলা|জেলা)\s*[:\-]\s*/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function parseAICustomerInput(raw: string): { name: string; phone: string; address: string } {
@@ -101,16 +118,45 @@ function parseAICustomerInput(raw: string): { name: string; phone: string; addre
 
   const normalized = normalizeBanglaDigits(text);
 
-  const labeledName = normalized.match(/(?:name|নাম)\s*[:\-]\s*(.+?)(?=(?:phone|ফোন|মোবাইল|mobile|number|নম্বর|address|ঠিকানা)\s*[:\-]|$)/i);
-  const labeledPhone = normalized.match(/(?:phone|ফোন|মোবাইল|mobile|number|নম্বর)\s*[:\-]\s*(.+?)(?=(?:name|নাম|address|ঠিকানা)\s*[:\-]|$)/i);
-  const labeledAddress = normalized.match(/(?:address|ঠিকানা)\s*[:\-]\s*(.+?)(?=(?:name|নাম|phone|ফোন|মোবাইল|mobile)\s*[:\-]|$)/i);
+  const allLabels = /(?:name|নাম|phone|ফোন|মোবাইল|mobile|number|নম্বর|address|ঠিকানা|গ্রাম|পোস্ট|থানা|উপজেলা|জেলা)\s*[:\-]/i;
+  const flatNorm = normalized.replace(/\n/g, " ");
+  const flatText = text.replace(/\n/g, " ");
 
-  if (labeledName || labeledPhone || labeledAddress) {
-    const phone = labeledPhone ? labeledPhone[1].trim().replace(/[^\d+]/g, "") : "";
+  if (allLabels.test(flatNorm) || allLabels.test(flatText)) {
+    const endLook = `(?=(?:name|নাম|phone|ফোন|মোবাইল|mobile|number|নম্বর|address|ঠিকানা|গ্রাম|পোস্ট|থানা|উপজেলা|জেলা)\\s*[:\\-]|$)`;
+    const labeledName = flatNorm.match(new RegExp(`(?:name|নাম)\\s*[:\\-]\\s*(.+?)${endLook}`, "i"));
+    const labeledPhone = flatNorm.match(new RegExp(`(?:phone|ফোন|মোবাইল|mobile|number|নম্বর)\\s*[:\\-]\\s*(.+?)${endLook}`, "i"));
+
+    const addrParts: string[] = [];
+    const addrLabels = [/ঠিকানা|address/i, /গ্রাম/i, /পোস্ট/i, /থানা/i, /উপজেলা/i, /জেলা/i];
+    for (const lbl of addrLabels) {
+      const re = new RegExp(`(?:${lbl.source})\\s*[:\\-]\\s*(.+?)${endLook}`, "i");
+      const m = flatText.match(re) || flatNorm.match(re);
+      if (m) addrParts.push(m[1].trim());
+    }
+
+    if (labeledName || labeledPhone || addrParts.length > 0) {
+      const phone = labeledPhone ? labeledPhone[1].trim().replace(/[^\d+]/g, "") : "";
+      const nameVal = labeledName ? labeledName[1].trim() : "";
+      const addrVal = addrParts.length > 0 ? addrParts.join(", ") : "";
+      const origNameMatch = nameVal && flatText.match(new RegExp(nameVal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+      return {
+        name: origNameMatch ? origNameMatch[0] : nameVal,
+        phone,
+        address: mergeAddressSubLabels(addrVal),
+      };
+    }
+  }
+
+  const inlineName = text.match(INLINE_LABEL_PATTERN);
+  const inlinePhone = normalized.match(INLINE_PHONE_LABEL);
+  const inlineAddr = text.match(INLINE_ADDR_LABEL);
+  if (inlineName && (inlinePhone || inlineAddr)) {
+    const phone = inlinePhone ? normalizeBanglaDigits(inlinePhone[1]).replace(/[^\d+]/g, "") : "";
     return {
-      name: labeledName ? labeledName[1].trim() : "",
+      name: inlineName[2].trim(),
       phone,
-      address: labeledAddress ? labeledAddress[1].trim() : "",
+      address: inlineAddr ? inlineAddr[1].trim() : "",
     };
   }
 
@@ -129,18 +175,26 @@ function parseAICustomerInput(raw: string): { name: string; phone: string; addre
     }
 
     if (nonPhoneLines.length >= 2) {
-      let nameIdx = -1;
-      let addrIdx = -1;
+      let bestNameIdx = -1;
+      let bestNameScore = -1;
 
       for (let i = 0; i < nonPhoneLines.length; i++) {
-        if (nameIdx === -1 && isNameLike(nonPhoneLines[i])) {
-          nameIdx = i;
-        }
+        const line = nonPhoneLines[i];
+        if (!isNameLike(line)) continue;
+        let score = 0;
+        const wc = line.split(/\s+/).length;
+        if (wc <= 3) score += 10;
+        if (wc === 1) score += 5;
+        if (line.length < 30) score += 3;
+        if (!isAddressLike(line)) score += 5;
+        if (NAME_PREFIXES.test(line.split(/\s+/)[0])) score += 3;
+        if (i === 0) score += 2;
+        if (score > bestNameScore) { bestNameScore = score; bestNameIdx = i; }
       }
 
-      if (nameIdx >= 0) {
-        const remaining = nonPhoneLines.filter((_, i) => i !== nameIdx);
-        return { name: nonPhoneLines[nameIdx], phone, address: remaining.join(", ") };
+      if (bestNameIdx >= 0) {
+        const remaining = nonPhoneLines.filter((_, i) => i !== bestNameIdx);
+        return { name: nonPhoneLines[bestNameIdx], phone, address: remaining.join(", ") };
       }
 
       return { name: nonPhoneLines[0], phone, address: nonPhoneLines.slice(1).join(", ") };
@@ -148,9 +202,7 @@ function parseAICustomerInput(raw: string): { name: string; phone: string; addre
 
     if (nonPhoneLines.length === 1) {
       const line = nonPhoneLines[0];
-      if (isNameLike(line)) {
-        return { name: line, phone, address: "" };
-      }
+      if (isNameLike(line)) return { name: line, phone, address: "" };
       return { name: "", phone, address: line };
     }
 
@@ -159,9 +211,16 @@ function parseAICustomerInput(raw: string): { name: string; phone: string; addre
 
   let remaining = text;
   if (phoneMatch && phoneMatch.index !== undefined) {
-    const before = text.substring(0, phoneMatch.index);
-    const after = text.substring(phoneMatch.index + phoneMatch[0].length);
-    remaining = (before + " " + after).trim();
+    const phoneLenInOrig = phoneMatch[0].length;
+    const origNorm = normalizeBanglaDigits(text);
+    const phoneIdx = origNorm.indexOf(phoneMatch[0]);
+    if (phoneIdx >= 0) {
+      remaining = (text.substring(0, phoneIdx) + " " + text.substring(phoneIdx + phoneLenInOrig)).trim();
+    } else {
+      const before = text.substring(0, phoneMatch.index);
+      const after = text.substring(phoneMatch.index + phoneLenInOrig);
+      remaining = (before + " " + after).trim();
+    }
   }
   remaining = remaining.replace(/\s+/g, " ").trim();
 
