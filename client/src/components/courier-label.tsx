@@ -131,8 +131,6 @@ export default function CourierLabel({ sale, open, onOpenChange }: CourierLabelP
     const printWindow = window.open("", "_blank", "width=800,height=1000");
     if (!printWindow) return;
 
-    const threeLabels = `${singleLabel}${singleLabel}${singleLabel}`;
-
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -140,7 +138,7 @@ export default function CourierLabel({ sale, open, onOpenChange }: CourierLabelP
         <title>Courier Label - ${sale.consignmentId || sale.id}</title>
         <style>${PRINT_STYLES}</style>
       </head>
-      <body><div class="label-page">${threeLabels}</div></body>
+      <body><div class="label-page">${singleLabel}</div></body>
       </html>
     `);
     printWindow.document.close();
@@ -153,11 +151,9 @@ export default function CourierLabel({ sale, open, onOpenChange }: CourierLabelP
     const singleLabel = buildLabelHtml();
     if (!singleLabel) return;
 
-    const threeLabels = `${singleLabel}${singleLabel}${singleLabel}`;
-
     const container = document.createElement("div");
     container.style.cssText = "position:absolute;left:-9999px;top:0;width:190mm;background:#fff;padding:0;";
-    container.innerHTML = `<style>${PRINT_STYLES}</style><div class="label-page">${threeLabels}</div>`;
+    container.innerHTML = `<style>${PRINT_STYLES}</style><div class="label-page">${singleLabel}</div>`;
     document.body.appendChild(container);
 
     const html2canvas = (await import("html2canvas")).default;
@@ -186,7 +182,7 @@ export default function CourierLabel({ sale, open, onOpenChange }: CourierLabelP
             Courier Label
           </DialogTitle>
           <DialogDescription>
-            Configure sender details. Prints 3 labels per A4 page.
+            Configure sender details and print or download the shipping label.
           </DialogDescription>
         </DialogHeader>
 
@@ -225,7 +221,7 @@ export default function CourierLabel({ sale, open, onOpenChange }: CourierLabelP
         <div className="flex gap-2 justify-end mb-3">
           <Button variant="outline" onClick={handlePrint} data-testid="button-print-label">
             <Printer className="h-4 w-4 mr-2" />
-            Print (3x A4)
+            Print Label
           </Button>
           <Button onClick={handleDownloadPDF} data-testid="button-download-label-pdf">
             <Download className="h-4 w-4 mr-2" />
@@ -234,7 +230,7 @@ export default function CourierLabel({ sale, open, onOpenChange }: CourierLabelP
         </div>
 
         <div className="border rounded-lg bg-white p-3">
-          <p className="text-xs text-muted-foreground mb-2 text-center">Label Preview (prints 3 copies per A4 page)</p>
+          <p className="text-xs text-muted-foreground mb-2 text-center">Label Preview</p>
           <div ref={labelRef}>
             <style>{PRINT_STYLES}</style>
             <div className="label-card">
