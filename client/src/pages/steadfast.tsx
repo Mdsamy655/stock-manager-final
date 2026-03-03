@@ -27,8 +27,9 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Truck, Send, RefreshCw, Package, CheckCircle, XCircle, Clock, Settings, Save, Trash2 } from "lucide-react";
+import { Truck, Send, RefreshCw, Package, CheckCircle, XCircle, Clock, Settings, Save, Trash2, Printer } from "lucide-react";
 import type { SaleWithItems } from "@shared/schema";
+import CourierLabel from "@/components/courier-label";
 
 function formatTaka(amount: number): string {
   return `৳${amount.toLocaleString("en-BD")}`;
@@ -72,6 +73,7 @@ export default function Steadfast() {
   const [secretKey, setSecretKey] = useState("");
   const [baseUrl, setBaseUrl] = useState("https://portal.packzy.com/api/v1");
   const [amountOverrides, setAmountOverrides] = useState<Record<number, number>>({});
+  const [labelSale, setLabelSale] = useState<SaleWithItems | null>(null);
 
   const { data: config, isLoading: configLoading } = useQuery<SteadfastConfigData>({
     queryKey: ["/api/steadfast-config"],
@@ -369,6 +371,15 @@ export default function Steadfast() {
                         <Button
                           size="sm"
                           variant="outline"
+                          onClick={() => setLabelSale(sale)}
+                          data-testid={`button-print-label-${sale.id}`}
+                        >
+                          <Printer className="h-4 w-4 mr-1" />
+                          Label
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
                           onClick={() => checkStatusMutation.mutate(sale.id)}
                           disabled={checkStatusMutation.isPending || !isConfigured}
                           data-testid={`button-check-status-${sale.id}`}
@@ -419,6 +430,14 @@ export default function Steadfast() {
           )}
         </CardContent>
       </Card>
+
+      {labelSale && (
+        <CourierLabel
+          sale={labelSale}
+          open={!!labelSale}
+          onOpenChange={(v) => { if (!v) setLabelSale(null); }}
+        />
+      )}
     </div>
   );
 }
