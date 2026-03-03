@@ -72,41 +72,113 @@ function normalizeBanglaDigits(text: string): string {
   return text.replace(/[০-৯]/g, (ch) => BANGLA_DIGITS[ch] || ch);
 }
 
-function parseSmartCustomerInput(raw: string): { name: string; phone: string; address: string } {
+function parseAICustomerInput(raw: string): { name: string; phone: string; address: string } {
   const text = raw.trim();
   if (!text) return { name: "", phone: "", address: "" };
 
   const normalized = normalizeBanglaDigits(text);
 
-  const phoneRegex = /(?:(?:\+?880)|0)1[3-9]\d{8}/;
-  const match = normalized.match(phoneRegex);
+  const labeledName = normalized.match(/(?:name|নাম)\s*[:\-]\s*(.+?)(?=(?:phone|ফোন|address|ঠিকানা)\s*[:\-]|$)/i);
+  const labeledPhone = normalized.match(/(?:phone|ফোন|মোবাইল|mobile|number|নম্বর)\s*[:\-]\s*(.+?)(?=(?:name|নাম|address|ঠিকানা)\s*[:\-]|$)/i);
+  const labeledAddress = normalized.match(/(?:address|ঠিকানা)\s*[:\-]\s*(.+?)(?=(?:name|নাম|phone|ফোন)\s*[:\-]|$)/i);
 
-  if (!match || match.index === undefined) {
-    return { name: text, phone: "", address: "" };
+  if (labeledName || labeledPhone || labeledAddress) {
+    const phone = labeledPhone ? labeledPhone[1].trim().replace(/[^\d+]/g, "") : "";
+    return {
+      name: labeledName ? labeledName[1].trim() : "",
+      phone,
+      address: labeledAddress ? labeledAddress[1].trim() : "",
+    };
   }
 
-  const phone = match[0];
-  const phoneStart = match.index;
-  const phoneEnd = phoneStart + phone.length;
+  const phoneRegex = /(?:(?:\+?880)|0)1[3-9]\d{8}/;
+  const phoneMatch = normalized.match(phoneRegex);
+  const phone = phoneMatch ? phoneMatch[0] : "";
 
-  const beforePhone = text.substring(0, phoneStart).replace(/[,\-|/]+$/, "").trim();
-  const afterPhone = text.substring(phoneEnd).replace(/^[,\-|/]+/, "").trim();
+  let remaining = normalized;
+  if (phoneMatch && phoneMatch.index !== undefined) {
+    remaining = (normalized.substring(0, phoneMatch.index) + " " + normalized.substring(phoneMatch.index + phoneMatch[0].length)).trim();
+  }
 
-  let name = beforePhone;
-  let address = afterPhone;
+  remaining = remaining.replace(/[,\-|/]+/g, " , ").replace(/\s+/g, " ").trim();
 
-  if (!name && address) {
-    const parts = address.split(/[,\-|/]+/).map(p => p.trim()).filter(Boolean);
-    if (parts.length > 1) {
-      name = parts[0];
-      address = parts.slice(1).join(", ");
+  const segments = remaining.split(/\s*,\s*/).map(s => s.trim()).filter(Boolean);
+
+  let name = "";
+  let address = "";
+
+  if (segments.length === 0) {
+    return { name: "", phone, address: "" };
+  }
+
+  if (segments.length === 1) {
+    const words = segments[0].split(/\s+/);
+    if (words.length <= 3) {
+      name = segments[0];
     } else {
-      name = address;
-      address = "";
+      const nameWords: string[] = [];
+      const addressWords: string[] = [];
+      let nameComplete = false;
+      for (const w of words) {
+        if (!nameComplete && /^\d+$/.test(w)) {
+          nameComplete = true;
+          addressWords.push(w);
+        } else if (!nameComplete && nameWords.length < 3) {
+          nameWords.push(w);
+        } else {
+          nameComplete = true;
+          addressWords.push(w);
+        }
+      }
+      name = nameWords.join(" ");
+      address = addressWords.join(" ");
+    }
+  } else if (segments.length === 2) {
+    name = segments[0];
+    address = segments[1];
+  } else {
+    const shortSegments = segments.filter(s => s.split(/\s+/).length <= 3 && !/\d/.test(s));
+    if (shortSegments.length > 0) {
+      name = shortSegments[0];
+      address = segments.filter(s => s !== shortSegments[0]).join(", ");
+    } else {
+      name = segments[0];
+      address = segments.slice(1).join(", ");
     }
   }
 
-  return { name, phone, address };
+  if (phone && !name && !address) {
+    return { name: "", phone, address: "" };
+  }
+
+  const origRemaining = text.replace(/[০-৯]/g, "");
+  if (origRemaining !== remaining.replace(/[০-৯]/g, "")) {
+    const origNoPhone = phoneMatch && phoneMatch.index !== undefined
+      ? (text.substring(0, phoneMatch.index) + " " + text.substring(phoneMatch.index + phoneMatch[0].length)).trim()
+      : text;
+    const origClean = origNoPhone.replace(/[,\-|/]+/g, " , ").replace(/\s+/g, " ").trim();
+    const origSegments = origClean.split(/\s*,\s*/).map(s => s.trim()).filter(Boolean);
+
+    if (origSegments.length === segments.length) {
+      if (origSegments.length === 1) {
+        const words = origSegments[0].split(/\s+/);
+        const nameLen = name.split(/\s+/).length;
+        name = words.slice(0, nameLen).join(" ");
+        address = words.slice(nameLen).join(" ");
+      } else if (origSegments.length === 2) {
+        name = origSegments[0];
+        address = origSegments[1];
+      } else {
+        const idx = segments.indexOf(name);
+        if (idx >= 0) {
+          name = origSegments[idx];
+          address = origSegments.filter((_, i) => i !== idx).join(", ");
+        }
+      }
+    }
+  }
+
+  return { name: name.trim(), phone, address: address.trim() };
 }
 
 export default function Sales() {
@@ -119,7 +191,7 @@ export default function Sales() {
   const scanInputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lineItems, setLineItems] = useState<SaleLineItem[]>([{ productId: 0, quantity: 1, salePrice: 0 }]);
-  const [customerMode, setCustomerMode] = useState<"none" | "existing" | "new">("none");
+  const [customerMode, setCustomerMode] = useState<"none" | "existing" | "new" | "ai">("none");
   const [customerId, setCustomerId] = useState<string>("");
   const [newCustomerName, setNewCustomerName] = useState("");
   const [newCustomerPhone, setNewCustomerPhone] = useState("");
@@ -272,7 +344,7 @@ export default function Sales() {
       };
       if (customerMode === "existing" && customerId && customerId !== "none") {
         body.customerId = Number(customerId);
-      } else if (customerMode === "new" && newCustomerName.trim()) {
+      } else if ((customerMode === "new" || customerMode === "ai") && newCustomerName.trim()) {
         body.customerName = newCustomerName.trim();
         if (newCustomerPhone.trim()) body.customerPhone = newCustomerPhone.trim();
         if (newCustomerAddress.trim()) body.customerAddress = newCustomerAddress.trim();
@@ -500,6 +572,16 @@ export default function Sales() {
                   >
                     New Customer
                   </Button>
+                  <Button
+                    type="button"
+                    variant={customerMode === "ai" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => { setCustomerMode("ai"); setCustomerId(""); setSmartInput(""); }}
+                    data-testid="button-customer-ai"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 mr-1" />
+                    AI Customer Entry
+                  </Button>
                 </div>
 
                 {customerMode === "existing" && (
@@ -517,40 +599,40 @@ export default function Sales() {
                   </Select>
                 )}
 
-                {customerMode === "new" && (
+                {(customerMode === "new" || customerMode === "ai") && (
                   <div className="space-y-2 p-3 rounded-md border bg-muted/30">
-                    <div>
-                      <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Sparkles className="h-3 w-3 text-amber-500" />
-                        Smart Entry — paste name, phone & address in one line
-                      </Label>
-                      <div className="flex gap-2">
-                        <Input
+                    {customerMode === "ai" && (
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Sparkles className="h-3 w-3 text-amber-500" />
+                          Paste or type name, phone & address in any format
+                        </Label>
+                        <textarea
                           value={smartInput}
                           onChange={(e) => setSmartInput(e.target.value)}
-                          placeholder="e.g. Shahriar Ahmed 01622122818 Balakhal, Hajiganj"
-                          data-testid="input-smart-customer"
-                          className="flex-1"
+                          rows={3}
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          data-testid="input-ai-customer"
                         />
                         <Button
                           type="button"
                           size="sm"
-                          variant="secondary"
+                          className="w-full"
                           disabled={!smartInput.trim()}
                           onClick={() => {
-                            const parsed = parseSmartCustomerInput(smartInput);
+                            const parsed = parseAICustomerInput(smartInput);
                             if (parsed.name) setNewCustomerName(parsed.name);
                             if (parsed.phone) setNewCustomerPhone(parsed.phone);
                             if (parsed.address) setNewCustomerAddress(parsed.address);
                             setSmartInput("");
                           }}
-                          data-testid="button-smart-fill"
+                          data-testid="button-parse-fill"
                         >
                           <Sparkles className="h-4 w-4 mr-1" />
-                          Fill
+                          Parse & Fill
                         </Button>
                       </div>
-                    </div>
+                    )}
                     <div>
                       <Label className="text-xs text-muted-foreground">Customer Name *</Label>
                       <Input
@@ -704,7 +786,7 @@ export default function Sales() {
 
               <Button
                 className="w-full"
-                disabled={createMutation.isPending || validItems.length === 0 || (due > 0 && customerMode === "none") || (due > 0 && customerMode === "new" && !saveToCustomerList)}
+                disabled={createMutation.isPending || validItems.length === 0 || (due > 0 && customerMode === "none") || (due > 0 && (customerMode === "new" || customerMode === "ai") && !saveToCustomerList)}
                 onClick={() => createMutation.mutate()}
                 data-testid="button-submit-sale"
               >

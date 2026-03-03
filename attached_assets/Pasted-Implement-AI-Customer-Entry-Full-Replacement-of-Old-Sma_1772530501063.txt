@@ -1,0 +1,141 @@
+Implement AI Customer Entry (Full Replacement of Old Smart Entry)
+Do NOT Break Existing Structure
+
+Feature Name:
+AI Customer Entry
+
+Objective:
+Allow users to enter Name, Phone Number, and Address in any format (Bangla or English) inside a single intelligent input box. The system must automatically detect and fill the correct fields.
+
+---
+
+STEP 1: REMOVE OLD SMART ENTRY
+
+1. Completely remove the existing Smart Entry / previous AI entry field.
+2. Remove its placeholder sample text.
+3. Remove any parsing logic related to the old smart entry.
+4. Do NOT modify any other form fields.
+
+---
+
+STEP 2: ADD NEW AI CUSTOMER ENTRY OPTION
+
+1. Add a new tab/button beside:
+   → "New Customer"
+   Name it:
+   → "AI Customer Entry"
+
+2. When "AI Customer Entry" is selected:
+   
+   - Show one large intelligent input box.
+   - Keep it completely empty (no default example text).
+   - Add a "Parse & Fill" button.
+
+3. Keep the existing Name, Phone, and Address fields unchanged.
+
+---
+
+STEP 3: AI INTELLIGENT PARSING RULES
+
+The system must intelligently detect:
+
+- Customer Name
+- Phone Number
+- Address
+
+Users may enter data in ANY format and ANY order.
+
+Examples:
+
+- শাহরিয়ার আহমেদ 01622122818 বালাখাল হাজীগঞ্জ
+- 01622122818 শাহরিয়ার বালাখাল
+- Balakhal Hajiganj 01622122818 Shahriar
+- Name: Shahriar Ahmed Phone: 01622122818 Address: Balakhal
+- শাহরিয়ার, 01622122818, হাজীগঞ্জ
+- ০১৬২২১২২৮১৮ শাহরিয়ার আহমেদ বালাখাল
+- Just name phone address without labels
+- Address first, then phone, then name
+
+The AI must NOT depend on fixed order.
+
+---
+
+STEP 4: DETECTION LOGIC REQUIREMENTS
+
+1. Phone Detection:
+   
+   - Detect Bangladeshi numbers (01XXXXXXXXX)
+   - Detect Bangla digits (০১XXXXXXXXX)
+   - Convert Bangla digits to English automatically.
+   - Extract the 11-digit phone number.
+
+2. Name Detection:
+   
+   - Detect probable human name.
+   - Usually 1–3 words.
+   - Exclude numeric strings.
+   - Prefer words closest to phone number.
+
+3. Address Detection:
+   
+   - After removing phone and name,
+     everything remaining should be treated as address.
+   - Support Bangla and English.
+   - Support mixed language.
+
+4. If labels like:
+   
+   - Name:
+   - Phone:
+   - Address:
+     are present, prioritize labeled extraction.
+
+---
+
+STEP 5: AUTO-FILL BEHAVIOR
+
+1. After parsing:
+   
+   - Automatically fill:
+     → Customer Name field
+     → Phone field
+     → Address field
+
+2. If detection confidence is low:
+   
+   - Show detected values in preview mode.
+   - Allow user to edit before saving.
+
+---
+
+STEP 6: STRUCTURE PROTECTION (IMPORTANT)
+
+Do NOT modify:
+
+- Existing New Customer form structure
+- Existing validation logic
+- Sale logic
+- Delivery charge logic
+- Courier integration
+- Database structure
+- Existing save behavior
+
+Only replace the old Smart Entry with this new AI-powered system.
+
+---
+
+FINAL GOAL
+
+User can paste or type customer details in any order, any format, Bangla or English.
+
+System intelligently understands:
+
+- Which part is Name
+- Which part is Phone
+- Which part is Address
+
+Then automatically fills the correct fields.
+
+Old Smart Entry removed.
+New AI Customer Entry added beside New Customer.
+All other structure remains untouched.
