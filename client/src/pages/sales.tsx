@@ -41,7 +41,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, ShoppingCart, Trash2, X, FileText, ScanBarcode } from "lucide-react";
+import { Plus, ShoppingCart, Trash2, X, FileText, ScanBarcode, Sparkles } from "lucide-react";
 import type { Product, Customer, SaleWithItems } from "@shared/schema";
 import InvoiceModal from "@/components/invoice-modal";
 
@@ -66,6 +66,49 @@ function formatDate(date: string | Date | null): string {
   });
 }
 
+const BANGLA_DIGITS: Record<string, string> = { "০": "0", "১": "1", "২": "2", "৩": "3", "৪": "4", "৫": "5", "৬": "6", "৭": "7", "৮": "8", "৯": "9" };
+
+function normalizeBanglaDigits(text: string): string {
+  return text.replace(/[০-৯]/g, (ch) => BANGLA_DIGITS[ch] || ch);
+}
+
+function parseSmartCustomerInput(raw: string): { name: string; phone: string; address: string } {
+  const text = raw.trim();
+  if (!text) return { name: "", phone: "", address: "" };
+
+  const normalized = normalizeBanglaDigits(text);
+
+  const phoneRegex = /(?:(?:\+?880)|0)1[3-9]\d{8}/;
+  const match = normalized.match(phoneRegex);
+
+  if (!match || match.index === undefined) {
+    return { name: text, phone: "", address: "" };
+  }
+
+  const phone = match[0];
+  const phoneStart = match.index;
+  const phoneEnd = phoneStart + phone.length;
+
+  const beforePhone = text.substring(0, phoneStart).replace(/[,\-|/]+$/, "").trim();
+  const afterPhone = text.substring(phoneEnd).replace(/^[,\-|/]+/, "").trim();
+
+  let name = beforePhone;
+  let address = afterPhone;
+
+  if (!name && address) {
+    const parts = address.split(/[,\-|/]+/).map(p => p.trim()).filter(Boolean);
+    if (parts.length > 1) {
+      name = parts[0];
+      address = parts.slice(1).join(", ");
+    } else {
+      name = address;
+      address = "";
+    }
+  }
+
+  return { name, phone, address };
+}
+
 export default function Sales() {
   const [open, setOpen] = useState(false);
   const [invoiceSale, setInvoiceSale] = useState<SaleWithItems | null>(null);
@@ -81,6 +124,7 @@ export default function Sales() {
   const [newCustomerName, setNewCustomerName] = useState("");
   const [newCustomerPhone, setNewCustomerPhone] = useState("");
   const [newCustomerAddress, setNewCustomerAddress] = useState("");
+  const [smartInput, setSmartInput] = useState("");
   const [saveToCustomerList, setSaveToCustomerList] = useState(true);
   const [paidAmount, setPaidAmount] = useState<string>("");
   const [addCodFee, setAddCodFee] = useState(false);
@@ -475,6 +519,38 @@ export default function Sales() {
 
                 {customerMode === "new" && (
                   <div className="space-y-2 p-3 rounded-md border bg-muted/30">
+                    <div>
+                      <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Sparkles className="h-3 w-3 text-amber-500" />
+                        Smart Entry — paste name, phone & address in one line
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={smartInput}
+                          onChange={(e) => setSmartInput(e.target.value)}
+                          placeholder="e.g. Shahriar Ahmed 01622122818 Balakhal, Hajiganj"
+                          data-testid="input-smart-customer"
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          disabled={!smartInput.trim()}
+                          onClick={() => {
+                            const parsed = parseSmartCustomerInput(smartInput);
+                            if (parsed.name) setNewCustomerName(parsed.name);
+                            if (parsed.phone) setNewCustomerPhone(parsed.phone);
+                            if (parsed.address) setNewCustomerAddress(parsed.address);
+                            setSmartInput("");
+                          }}
+                          data-testid="button-smart-fill"
+                        >
+                          <Sparkles className="h-4 w-4 mr-1" />
+                          Fill
+                        </Button>
+                      </div>
+                    </div>
                     <div>
                       <Label className="text-xs text-muted-foreground">Customer Name *</Label>
                       <Input
