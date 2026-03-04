@@ -753,12 +753,14 @@ export class DatabaseStorage implements IStorage {
     const courierExpenses = normalExpenses.filter((e) => e.category === "Delivery").reduce((sum, e) => sum + e.amount, 0);
     const otherExpenses = totalExpenses - courierExpenses;
     const totalPermanentAssets = allExpenses.filter((e) => e.category === "Permanent Asset").reduce((sum, e) => sum + e.amount, 0);
-    const totalProfit = totalSales - totalCostOfSold;
+    const totalProfit = activeItems.reduce((sum, item) => sum + (item.unitPrice - item.costPrice) * item.quantity, 0) +
+      activeSales.filter((s) => !itemSaleIds.has(s.id) && s.costPrice && s.quantity && s.unitPrice)
+        .reduce((sum, s) => sum + ((s.unitPrice! - s.costPrice!) * s.quantity!), 0);
     const totalProducts = allProducts.length;
     const lowStockProducts = allProducts.filter((p) => p.stock <= 5).length;
 
     const totalInvestment = allInvestors.reduce((sum, i) => sum + i.investedAmount, 0);
-    const cashInHand = totalInvestment + totalProfit - totalExpenses - currentStockValue;
+    const cashInHand = totalInvestment + totalProfit - otherExpenses - currentStockValue;
     const availableWorkingCapital = cashInHand + currentStockValue;
 
     const now = new Date();
@@ -774,16 +776,16 @@ export class DatabaseStorage implements IStorage {
     const todaySaleIds = new Set(todaySalesRows.map((s) => s.id));
     const monthSaleIds = new Set(monthSalesRows.map((s) => s.id));
 
-    const todayCost = allItems.filter((i) => todaySaleIds.has(i.saleId)).reduce((sum, i) => sum + i.costPrice * i.quantity, 0) +
-      todaySalesRows.filter((s) => !itemSaleIds.has(s.id) && s.costPrice && s.quantity)
-        .reduce((sum, s) => sum + (s.costPrice! * s.quantity!), 0);
+    const todayItems = allItems.filter((i) => todaySaleIds.has(i.saleId));
+    const monthItems = allItems.filter((i) => monthSaleIds.has(i.saleId));
 
-    const monthCost = allItems.filter((i) => monthSaleIds.has(i.saleId)).reduce((sum, i) => sum + i.costPrice * i.quantity, 0) +
-      monthSalesRows.filter((s) => !itemSaleIds.has(s.id) && s.costPrice && s.quantity)
-        .reduce((sum, s) => sum + (s.costPrice! * s.quantity!), 0);
+    const todayProfit = todayItems.reduce((sum, i) => sum + (i.unitPrice - i.costPrice) * i.quantity, 0) +
+      todaySalesRows.filter((s) => !itemSaleIds.has(s.id) && s.costPrice && s.quantity && s.unitPrice)
+        .reduce((sum, s) => sum + ((s.unitPrice! - s.costPrice!) * s.quantity!), 0);
 
-    const todayProfit = todaySales - todayCost;
-    const monthProfit = monthSales - monthCost;
+    const monthProfit = monthItems.reduce((sum, i) => sum + (i.unitPrice - i.costPrice) * i.quantity, 0) +
+      monthSalesRows.filter((s) => !itemSaleIds.has(s.id) && s.costPrice && s.quantity && s.unitPrice)
+        .reduce((sum, s) => sum + ((s.unitPrice! - s.costPrice!) * s.quantity!), 0);
 
     return {
       totalSales,

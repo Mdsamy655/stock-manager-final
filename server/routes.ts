@@ -645,16 +645,20 @@ export async function registerRoutes(
       const result = await createSteadfastOrder(config, saleWithAmount);
       const updated = await storage.updateSaleCourier(id, userId, result.consignment_id, "pending");
 
-      const allExpenses = await storage.getExpenses(userId);
-      const courierExpenseExists = allExpenses.some(
-        (e) => e.category === "Delivery" && e.description.includes(`Order #${id}`)
-      );
-      if (!courierExpenseExists) {
-        await storage.createExpense(userId, {
-          description: `Courier charge - Order #${id} (${sale.customerName || "Unknown"})`,
-          amount: 110,
-          category: "Delivery",
-        });
+      const courierChargeAmount = sale.deliveryCharge ?? 0;
+      if (courierChargeAmount > 0) {
+        const allExpenses = await storage.getExpenses(userId);
+        const orderTag = `Order #${id} `;
+        const courierExpenseExists = allExpenses.some(
+          (e) => e.category === "Delivery" && e.description.includes(orderTag)
+        );
+        if (!courierExpenseExists) {
+          await storage.createExpense(userId, {
+            description: `Courier charge - Order #${id} (${sale.customerName || "Unknown"})`,
+            amount: courierChargeAmount,
+            category: "Delivery",
+          });
+        }
       }
 
       res.json(updated);

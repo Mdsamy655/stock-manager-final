@@ -73,15 +73,15 @@ A professional inventory management system built with Node.js, Express, React, a
 - **Invoice:** Shows Items Total, COD Fee (if any), Subtotal, Delivery Charge, Grand Total, Weight
 
 ## Dashboard Financial Formulas
-- **Total Profit** = Total Sales Revenue - Total Cost of Goods Sold (no expense deduction). Courier sales only count when delivered.
+- **Total Profit** = Sum of (unitPrice - costPrice) × quantity per item. Product margin only — delivery/packing excluded. Courier sales only count when delivered.
 - **Total Investment** = Sum of all investor contributions only (profit excluded)
 - **Stock Value** = Sum of (Cost Price × Current Stock) for all products
-- **Cash In Hand** = Total Investment + Total Profit - Total Expenses - Stock Value
+- **Cash In Hand** = Total Investment + Total Profit - Other Expenses - Stock Value (courier expenses excluded since delivery is a pass-through)
 - **Working Capital** = Cash In Hand + Stock Value
 - **Buying products:** decreases Cash In Hand, increases Stock Value, Total Investment unchanged
-- **Expenses:** decrease Cash In Hand, increase Total Expenses
-- **Courier charge:** Fixed 110 BDT added as Delivery expense when parcel is sent. Not added again on status change.
-- **Today/Month Profit** follows same rule: sales revenue minus cost of goods sold (no expense deduction)
+- **Expenses:** Other expenses decrease Cash In Hand. Courier expenses (Delivery category) are pass-through costs that don't affect profit or Cash In Hand.
+- **Courier charge:** Dynamic amount (= sale.deliveryCharge = delivery + packing) added as Delivery expense when parcel is sent. Not added again on status change.
+- **Today/Month Profit** follows same rule: item-level (unitPrice - costPrice) × quantity
 
 ## Design Decisions
 - All data tables have `user_id` column for multi-user isolation (currently all requests use user id=4)
