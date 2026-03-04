@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { sales, expenses, insertProductSchema, insertExpenseSchema, insertSupplierSchema, insertPurchaseSchema, insertCustomerSchema, insertInvestorSchema } from "@shared/schema";
+import { sales, expenses, insertProductSchema, insertExpenseSchema, insertSupplierSchema, insertPurchaseSchema, insertCustomerSchema, insertInvestorSchema, type SaleWithItems } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { createSteadfastOrder, checkSteadfastStatus } from "./steadfast";
@@ -675,6 +675,65 @@ export async function registerRoutes(
     }
   });
 
+  async function applyCourierStatusFinancials(
+    saleId: number,
+    userId: number,
+    sale: SaleWithItems,
+    oldStatus: string | null,
+    newStatus: string
+  ) {
+    const RETURNED_STATUSES = ["returned", "cancelled", "cancelled_delivery"];
+    const wasDelivered = oldStatus === "delivered";
+    const wasCancelled = RETURNED_STATUSES.includes(oldStatus || "");
+    const isDelivered = newStatus === "delivered";
+    const isCancelled = RETURNED_STATUSES.includes(newStatus);
+
+    if (oldStatus === newStatus) return;
+
+    if (wasDelivered && !isDelivered) {
+      await storage.updateSalePayment(saleId, userId, sale.paidAmount ?? 0, sale.dueAmount ?? 0);
+    }
+
+    if (wasCancelled && !isCancelled) {
+      await storage.updateSalePayment(saleId, userId, sale.paidAmount ?? 0, sale.dueAmount ?? 0);
+    }
+
+    const allExpenses = await storage.getExpenses(userId);
+    const courierExpenseExists = allExpenses.some(
+      (e) => e.category === "Delivery" && e.description.includes(`Order #${saleId}`)
+    );
+
+    if (isDelivered && !wasDelivered) {
+      await storage.updateSalePayment(saleId, userId, sale.totalPrice, 0);
+
+      if (!courierExpenseExists) {
+        const courierCharge = sale.deliveryCharge ?? 0;
+        if (courierCharge > 0) {
+          await storage.createExpense(userId, {
+            description: `Courier charge - Order #${saleId} (${sale.customerName || "Unknown"})`,
+            amount: courierCharge,
+            category: "Delivery",
+          });
+        }
+      }
+    }
+
+    if (isCancelled && !wasCancelled) {
+      await storage.updateSalePayment(saleId, userId, 0, 0);
+
+      if (!courierExpenseExists) {
+        const deliveryChargeAmount = sale.deliveryCharge ?? 0;
+        if (deliveryChargeAmount > 0) {
+          await storage.createExpense(userId, {
+            description: `Return delivery charge - Order #${saleId} (${sale.customerName || "Unknown"})`,
+            amount: deliveryChargeAmount,
+            category: "Delivery",
+          });
+        }
+      }
+    }
+  }
+
   app.post("/api/steadfast/status/:id", async (req, res) => {
     try {
       const userId = req.user!.id;
@@ -692,29 +751,73 @@ export async function registerRoutes(
       const oldStatus = sale.courierStatus;
       await storage.updateSaleCourier(id, userId, sale.consignmentId, newStatus);
 
-      if (newStatus === "delivered" && oldStatus !== "delivered") {
-        await storage.updateSalePayment(id, userId, sale.totalPrice, 0);
-      }
-
-      const RETURNED_STATUSES = ["returned", "cancelled", "cancelled_delivery"];
-      if (RETURNED_STATUSES.includes(newStatus) && !RETURNED_STATUSES.includes(oldStatus || "")) {
-        await storage.updateSalePayment(id, userId, 0, 0);
-
-        const deliveryChargeAmount = sale.deliveryCharge ?? 0;
-        if (deliveryChargeAmount > 0) {
-          await storage.createExpense(userId, {
-            description: `Return delivery charge - Order #${id} (${sale.customerName || "Unknown"})`,
-            amount: deliveryChargeAmount,
-            category: "Delivery",
-          });
-        }
-      }
+      await applyCourierStatusFinancials(id, userId, sale, oldStatus, newStatus);
 
       const updated = await storage.getCourierSales(userId);
       const updatedSale = updated.find((s) => s.id === id);
       res.json(updatedSale);
     } catch (error: any) {
       console.log("Steadfast status error:", error.message);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/steadfast/manual-status/:id", async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const id = parseInt(req.params.id);
+      const { status } = req.body;
+
+      const validStatuses = ["pending", "in_review", "delivered", "cancelled"];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Invalid status. Must be: pending, in_review, delivered, or cancelled" });
+      }
+
+      const allSales = await storage.getSales(userId);
+      const sale = allSales.find((s) => s.id === id);
+      if (!sale) return res.status(404).json({ message: "Sale not found" });
+      if (!sale.isSentToCourier) return res.status(400).json({ message: "This sale is not a courier order" });
+
+      const oldStatus = sale.courierStatus;
+      await storage.updateSaleCourier(id, userId, sale.consignmentId || "", status);
+
+      await applyCourierStatusFinancials(id, userId, sale, oldStatus, status);
+
+      const updated = await storage.getCourierSales(userId);
+      const updatedSale = updated.find((s) => s.id === id);
+      res.json(updatedSale);
+    } catch (error: any) {
+      console.log("Manual status update error:", error.message);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/steadfast/simulate/:id", async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const id = parseInt(req.params.id);
+      const { status } = req.body;
+
+      const validStatuses = ["pending", "in_review", "delivered", "cancelled"];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Invalid simulation status. Must be: pending, in_review, delivered, or cancelled" });
+      }
+
+      const allSales = await storage.getSales(userId);
+      const sale = allSales.find((s) => s.id === id);
+      if (!sale) return res.status(404).json({ message: "Sale not found" });
+      if (!sale.isSentToCourier) return res.status(400).json({ message: "This sale is not a courier order" });
+
+      const oldStatus = sale.courierStatus;
+      await storage.updateSaleCourier(id, userId, sale.consignmentId || "", status);
+
+      await applyCourierStatusFinancials(id, userId, sale, oldStatus, status);
+
+      const updated = await storage.getCourierSales(userId);
+      const updatedSale = updated.find((s) => s.id === id);
+      res.json(updatedSale);
+    } catch (error: any) {
+      console.log("Simulate status error:", error.message);
       res.status(500).json({ message: error.message });
     }
   });

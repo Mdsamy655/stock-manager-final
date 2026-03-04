@@ -63,6 +63,8 @@ A professional inventory management system built with Node.js, Express, React, a
 - `GET/POST /api/steadfast-config`
 - `GET /api/courier-sales`
 - `POST /api/steadfast/send/:id`, `DELETE /api/steadfast/order/:id`, `POST /api/steadfast/status/:id`
+- `POST /api/steadfast/manual-status/:id` — manual status update (pending, in_review, delivered, cancelled) with financial effects
+- `POST /api/steadfast/simulate/:id` — test/simulation mode, same financial logic without real API calls
 
 ## Weight & COD Logic
 - **Weight:** Each product has optional `weightPerUnit` (KG). During sales, line weight = quantity × weightPerUnit. Total weight = sum of all line weights. Stored in `sales.total_weight`.

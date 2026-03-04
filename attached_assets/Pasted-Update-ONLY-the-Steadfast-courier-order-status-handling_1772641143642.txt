@@ -1,0 +1,129 @@
+Update ONLY the Steadfast courier order status handling logic.
+
+Do NOT modify any other system components.
+
+STRICT RULES:
+1. Do NOT change API key, secret key, or base URL.
+2. Do NOT modify database schema.
+3. Do NOT modify dashboard financial calculations.
+4. Do NOT modify UI layout outside the Steadfast page.
+5. Only improve courier order status handling and financial effects.
+
+GOAL:
+Handle Steadfast order statuses correctly and allow both automatic API updates and manual status control.
+
+--------------------------------
+ORDER STATUS TYPES
+--------------------------------
+
+Support these statuses:
+
+- Pending
+- In Review
+- Delivered
+- Cancelled
+
+--------------------------------
+AUTOMATIC STATUS (API)
+--------------------------------
+
+If Steadfast API returns status updates:
+
+Delivered:
+- Remove amount from COD Pending
+- Add (Sale Amount - Courier Charge) to Cash In Hand
+- Deduct courier charge as expense
+- Profit = Sale price - product cost - courier charge
+
+Cancelled:
+- Remove sale profit
+- Courier charge becomes expense
+- Sale is marked cancelled
+
+Pending / In Review:
+- Amount stays in COD Pending
+- Do not add to Cash In Hand yet
+
+--------------------------------
+MANUAL STATUS CONTROL
+--------------------------------
+
+Allow admin to manually update courier status from the Steadfast page.
+
+Manual options:
+
+Pending
+In Review
+Delivered
+Cancelled
+
+Manual update must trigger the same financial logic as automatic updates.
+
+--------------------------------
+COURIER CHARGE HANDLING
+--------------------------------
+
+Courier charge must:
+
+Delivered:
+Deduct from sale before adding to cash.
+
+Cancelled:
+Recorded as expense.
+
+--------------------------------
+TEST MODE / SIMULATION
+--------------------------------
+
+Add a simple test option in the Steadfast page:
+
+Buttons for testing status updates:
+
+Simulate Delivered
+Simulate Cancelled
+Simulate Pending
+
+These should update the order and financial data exactly as the real API would.
+
+This allows testing without sending real courier requests.
+
+--------------------------------
+REPORT / RECEIPT DATA
+--------------------------------
+
+Ensure each courier order stores:
+
+Sale ID
+Consignment ID
+Customer name
+Phone
+Amount
+Courier Charge
+Status
+Date
+
+These fields allow reporting and receipt display later.
+
+--------------------------------
+FILES TO MODIFY
+--------------------------------
+
+Only modify logic related to Steadfast courier:
+
+Possible files:
+
+server/steadfast.ts
+server/routes.ts
+client/src/pages/steadfast.tsx
+
+Do not touch other modules.
+
+--------------------------------
+IMPORTANT
+--------------------------------
+
+Before applying changes:
+
+Explain what will be modified.
+
+Then implement the fix.
