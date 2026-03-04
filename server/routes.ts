@@ -2,8 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { sales, expenses, insertProductSchema, insertExpenseSchema, insertSupplierSchema, insertPurchaseSchema, insertCustomerSchema, insertInvestorSchema, type SaleWithItems } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { sales, expenses, products, insertProductSchema, insertExpenseSchema, insertSupplierSchema, insertPurchaseSchema, insertCustomerSchema, insertInvestorSchema, type SaleWithItems } from "@shared/schema";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { createSteadfastOrder, checkSteadfastStatus } from "./steadfast";
 import { authMiddleware, generateToken, type AuthUser } from "./auth";
@@ -644,6 +644,19 @@ export async function registerRoutes(
       const saleWithAmount = { ...sale, totalPrice: codAmount };
       const result = await createSteadfastOrder(config, saleWithAmount);
       const updated = await storage.updateSaleCourier(id, userId, result.consignment_id, "pending");
+
+      const allExpenses = await storage.getExpenses(userId);
+      const courierExpenseExists = allExpenses.some(
+        (e) => e.category === "Delivery" && e.description.includes(`Order #${id}`)
+      );
+      if (!courierExpenseExists) {
+        await storage.createExpense(userId, {
+          description: `Courier charge - Order #${id} (${sale.customerName || "Unknown"})`,
+          amount: 110,
+          category: "Delivery",
+        });
+      }
+
       res.json(updated);
     } catch (error: any) {
       console.log("Steadfast send error:", error.message);
@@ -682,55 +695,39 @@ export async function registerRoutes(
     oldStatus: string | null,
     newStatus: string
   ) {
-    const RETURNED_STATUSES = ["returned", "cancelled", "cancelled_delivery"];
-    const wasDelivered = oldStatus === "delivered";
-    const wasCancelled = RETURNED_STATUSES.includes(oldStatus || "");
-    const isDelivered = newStatus === "delivered";
-    const isCancelled = RETURNED_STATUSES.includes(newStatus);
+    const CANCELLED_STATUSES = ["returned", "cancelled", "cancelled_delivery"];
 
     if (oldStatus === newStatus) return;
 
-    if (wasDelivered && !isDelivered) {
-      await storage.updateSalePayment(saleId, userId, sale.paidAmount ?? 0, sale.dueAmount ?? 0);
-    }
+    const isCancelled = CANCELLED_STATUSES.includes(newStatus);
+    const wasCancelled = CANCELLED_STATUSES.includes(oldStatus || "");
 
-    if (wasCancelled && !isCancelled) {
-      await storage.updateSalePayment(saleId, userId, sale.paidAmount ?? 0, sale.dueAmount ?? 0);
-    }
-
-    const allExpenses = await storage.getExpenses(userId);
-    const courierExpenseExists = allExpenses.some(
-      (e) => e.category === "Delivery" && e.description.includes(`Order #${saleId}`)
-    );
+    const isDelivered = newStatus === "delivered";
+    const wasDelivered = oldStatus === "delivered";
 
     if (isDelivered && !wasDelivered) {
       await storage.updateSalePayment(saleId, userId, sale.totalPrice, 0);
-
-      if (!courierExpenseExists) {
-        const courierCharge = sale.deliveryCharge ?? 0;
-        if (courierCharge > 0) {
-          await storage.createExpense(userId, {
-            description: `Courier charge - Order #${saleId} (${sale.customerName || "Unknown"})`,
-            amount: courierCharge,
-            category: "Delivery",
-          });
-        }
-      }
     }
 
     if (isCancelled && !wasCancelled) {
       await storage.updateSalePayment(saleId, userId, 0, 0);
-
-      if (!courierExpenseExists) {
-        const deliveryChargeAmount = sale.deliveryCharge ?? 0;
-        if (deliveryChargeAmount > 0) {
-          await storage.createExpense(userId, {
-            description: `Return delivery charge - Order #${saleId} (${sale.customerName || "Unknown"})`,
-            amount: deliveryChargeAmount,
-            category: "Delivery",
-          });
-        }
+      for (const item of sale.items) {
+        await db.update(products).set({
+          stock: sql`stock + ${item.quantity}`,
+        }).where(eq(products.id, item.productId));
       }
+    }
+
+    if (wasCancelled && !isCancelled) {
+      for (const item of sale.items) {
+        await db.update(products).set({
+          stock: sql`GREATEST(0, stock - ${item.quantity})`,
+        }).where(eq(products.id, item.productId));
+      }
+    }
+
+    if (wasDelivered && !isDelivered && !isCancelled) {
+      await storage.updateSalePayment(saleId, userId, 0, sale.totalPrice);
     }
   }
 
@@ -792,35 +789,6 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/steadfast/simulate/:id", async (req, res) => {
-    try {
-      const userId = req.user!.id;
-      const id = parseInt(req.params.id);
-      const { status } = req.body;
-
-      const validStatuses = ["pending", "in_review", "delivered", "cancelled"];
-      if (!validStatuses.includes(status)) {
-        return res.status(400).json({ message: "Invalid simulation status. Must be: pending, in_review, delivered, or cancelled" });
-      }
-
-      const allSales = await storage.getSales(userId);
-      const sale = allSales.find((s) => s.id === id);
-      if (!sale) return res.status(404).json({ message: "Sale not found" });
-      if (!sale.isSentToCourier) return res.status(400).json({ message: "This sale is not a courier order" });
-
-      const oldStatus = sale.courierStatus;
-      await storage.updateSaleCourier(id, userId, sale.consignmentId || "", status);
-
-      await applyCourierStatusFinancials(id, userId, sale, oldStatus, status);
-
-      const updated = await storage.getCourierSales(userId);
-      const updatedSale = updated.find((s) => s.id === id);
-      res.json(updatedSale);
-    } catch (error: any) {
-      console.log("Simulate status error:", error.message);
-      res.status(500).json({ message: error.message });
-    }
-  });
 
   return httpServer;
 }

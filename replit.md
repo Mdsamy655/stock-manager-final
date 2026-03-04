@@ -19,7 +19,7 @@ A professional inventory management system built with Node.js, Express, React, a
 - **Customers:** Add/view customers with due amount tracking
 - **Payments:** Record/delete customer payments that adjust their due amounts
 - **Investors:** Track investor contributions with cash/product types
-- **Steadfast Courier:** Dynamic API config stored in DB; send sales to Steadfast courier with editable COD amount per order; track status; **Return COD Accounting** — returned orders automatically reverse revenue, zero out payment/due, add delivery charge as expense, recalculate profit
+- **Steadfast Courier:** Dynamic API config stored in DB; send sales to Steadfast courier with editable COD amount per order; track status; fixed 110 BDT courier charge on send; profit/cash only counted when delivered; stock restored on cancel; cancelled sales zero out payment/due
 - **Customer Details:** View individual customer transaction history
 - **Invoice System:** Generate printable/downloadable PDF invoices with COD fee and weight display
 
@@ -63,8 +63,7 @@ A professional inventory management system built with Node.js, Express, React, a
 - `GET/POST /api/steadfast-config`
 - `GET /api/courier-sales`
 - `POST /api/steadfast/send/:id`, `DELETE /api/steadfast/order/:id`, `POST /api/steadfast/status/:id`
-- `POST /api/steadfast/manual-status/:id` — manual status update (pending, in_review, delivered, cancelled) with financial effects
-- `POST /api/steadfast/simulate/:id` — test/simulation mode, same financial logic without real API calls
+- `POST /api/steadfast/manual-status/:id` — manual status update (pending, in_review, delivered, cancelled) with financial/stock effects
 
 ## Weight & COD Logic
 - **Weight:** Each product has optional `weightPerUnit` (KG). During sales, line weight = quantity × weightPerUnit. Total weight = sum of all line weights. Stored in `sales.total_weight`.
@@ -72,13 +71,14 @@ A professional inventory management system built with Node.js, Express, React, a
 - **Invoice:** Shows Items Total, COD Fee (if any), Subtotal, Delivery Charge (invoice-only), Grand Total, Weight
 
 ## Dashboard Financial Formulas
-- **Total Profit** = Total Sales Revenue - Total Cost of Goods Sold (no expense deduction)
+- **Total Profit** = Total Sales Revenue - Total Cost of Goods Sold (no expense deduction). Courier sales only count when delivered.
 - **Total Investment** = Sum of all investor contributions only (profit excluded)
 - **Stock Value** = Sum of (Cost Price × Current Stock) for all products
 - **Cash In Hand** = Total Investment + Total Profit - Total Expenses - Stock Value
 - **Working Capital** = Cash In Hand + Stock Value
 - **Buying products:** decreases Cash In Hand, increases Stock Value, Total Investment unchanged
 - **Expenses:** decrease Cash In Hand, increase Total Expenses
+- **Courier charge:** Fixed 110 BDT added as Delivery expense when parcel is sent. Not added again on status change.
 - **Today/Month Profit** follows same rule: sales revenue minus cost of goods sold (no expense deduction)
 
 ## Design Decisions

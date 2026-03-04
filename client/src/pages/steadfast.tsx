@@ -35,7 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Truck, Send, RefreshCw, Package, CheckCircle, XCircle, Clock, Settings, Save, Trash2, Printer, FlaskConical } from "lucide-react";
+import { Truck, Send, RefreshCw, Package, CheckCircle, XCircle, Clock, Settings, Save, Trash2, Printer } from "lucide-react";
 import type { SaleWithItems } from "@shared/schema";
 import CourierLabel from "@/components/courier-label";
 import BulkLabelPrint from "@/components/bulk-label-print";
@@ -129,6 +129,7 @@ export default function Steadfast() {
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
       queryClient.invalidateQueries({ queryKey: ["/api/courier-sales"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
       toast({ title: "Sent to Steadfast", description: "Consignment created successfully" });
     },
     onError: (error: any) => {
@@ -180,24 +181,8 @@ export default function Steadfast() {
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       toast({ title: "Status Updated", description: `Manually set to: ${variables.status}` });
-    },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    },
-  });
-
-  const simulateMutation = useMutation({
-    mutationFn: async ({ saleId, status }: { saleId: number; status: string }) => {
-      const res = await apiRequest("POST", `/api/steadfast/simulate/${saleId}`, { status });
-      return res.json();
-    },
-    onSuccess: (_data: any, variables: { saleId: number; status: string }) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/courier-sales"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
-      toast({ title: "Simulation Complete", description: `Simulated status: ${variables.status}` });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -429,7 +414,6 @@ export default function Steadfast() {
                   <TableHead>Set Status</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Action</TableHead>
-                  <TableHead>Test</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -527,43 +511,6 @@ export default function Steadfast() {
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-emerald-600"
-                          onClick={() => simulateMutation.mutate({ saleId: sale.id, status: "delivered" })}
-                          disabled={simulateMutation.isPending}
-                          data-testid={`button-simulate-delivered-${sale.id}`}
-                        >
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Delivered
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-red-600"
-                          onClick={() => simulateMutation.mutate({ saleId: sale.id, status: "cancelled" })}
-                          disabled={simulateMutation.isPending}
-                          data-testid={`button-simulate-cancelled-${sale.id}`}
-                        >
-                          <XCircle className="h-3 w-3 mr-1" />
-                          Cancelled
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-yellow-600"
-                          onClick={() => simulateMutation.mutate({ saleId: sale.id, status: "pending" })}
-                          disabled={simulateMutation.isPending}
-                          data-testid={`button-simulate-pending-${sale.id}`}
-                        >
-                          <Clock className="h-3 w-3 mr-1" />
-                          Pending
-                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

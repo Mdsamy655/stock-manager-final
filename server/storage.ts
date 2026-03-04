@@ -732,7 +732,11 @@ export class DatabaseStorage implements IStorage {
     const allInvestors = await db.select().from(investors).where(eq(investors.userId, userId));
 
     const RETURNED_STATUSES = ["returned", "cancelled", "cancelled_delivery"];
-    const activeSales = allSales.filter(s => !RETURNED_STATUSES.includes(s.courierStatus || ""));
+    const activeSales = allSales.filter(s => {
+      if (RETURNED_STATUSES.includes(s.courierStatus || "")) return false;
+      if (s.isSentToCourier && s.courierStatus !== "delivered") return false;
+      return true;
+    });
     const activeSaleIds = new Set(activeSales.map(s => s.id));
     const totalSales = activeSales.reduce((sum, s) => sum + s.totalPrice, 0);
     const itemSaleIds = new Set(allItems.map((i) => i.saleId));
