@@ -71,7 +71,7 @@ A professional inventory management system built with Node.js, Express, React, a
 
 ## Dashboard Financial Formulas
 - **Total Profit** = Total Sales Revenue - Total Cost of Goods Sold (no expense deduction)
-- **Total Investment** = Initial Investment (sum of all investor contributions) + Total Profit
+- **Total Investment** = Sum of all investor contributions only (profit excluded)
 - **Stock Value** = Sum of (Cost Price × Current Stock) for all products
 - **Cash In Hand** = Total Investment - Stock Value - Total Expenses
 - **Working Capital** = Cash In Hand + Stock Value

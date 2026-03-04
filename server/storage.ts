@@ -751,8 +751,7 @@ export class DatabaseStorage implements IStorage {
     const totalProducts = allProducts.length;
     const lowStockProducts = allProducts.filter((p) => p.stock <= 5).length;
 
-    const initialInvestment = allInvestors.reduce((sum, i) => sum + i.investedAmount, 0);
-    const totalInvestment = initialInvestment + totalProfit;
+    const totalInvestment = allInvestors.reduce((sum, i) => sum + i.investedAmount, 0);
     const cashInHand = totalInvestment - currentStockValue - totalExpenses;
     const availableWorkingCapital = cashInHand + currentStockValue;
 
