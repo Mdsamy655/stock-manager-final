@@ -139,11 +139,11 @@ export default function Dashboard() {
               testId="card-total-sales"
             />
             <StatCard
-              title="Total Expenses"
-              value={formatTaka(stats.totalExpenses)}
+              title="Other Expenses"
+              value={formatTaka(stats.otherExpenses ?? 0)}
               icon={Receipt}
-              description="All recorded expenses"
-              testId="card-total-expenses"
+              description="Business expenses (excl. courier)"
+              testId="card-other-expenses"
             />
           </>
         ) : null}

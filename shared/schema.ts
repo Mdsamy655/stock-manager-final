@@ -229,6 +229,8 @@ export interface DashboardStats {
   totalInvestment: number;
   currentStockValue: number;
   totalExpenses: number;
+  otherExpenses: number;
+  courierExpenses: number;
   totalPermanentAssets: number;
   totalProfit: number;
   totalProducts: number;

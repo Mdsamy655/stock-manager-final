@@ -750,6 +750,8 @@ export class DatabaseStorage implements IStorage {
     );
     const normalExpenses = allExpenses.filter((e) => e.category !== "Permanent Asset");
     const totalExpenses = normalExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const courierExpenses = normalExpenses.filter((e) => e.category === "Delivery").reduce((sum, e) => sum + e.amount, 0);
+    const otherExpenses = totalExpenses - courierExpenses;
     const totalPermanentAssets = allExpenses.filter((e) => e.category === "Permanent Asset").reduce((sum, e) => sum + e.amount, 0);
     const totalProfit = totalSales - totalCostOfSold;
     const totalProducts = allProducts.length;
@@ -788,6 +790,8 @@ export class DatabaseStorage implements IStorage {
       totalInvestment,
       currentStockValue,
       totalExpenses,
+      otherExpenses,
+      courierExpenses,
       totalPermanentAssets,
       totalProfit,
       totalProducts,
