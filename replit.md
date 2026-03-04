@@ -67,8 +67,10 @@ A professional inventory management system built with Node.js, Express, React, a
 
 ## Weight & COD Logic
 - **Weight:** Each product has optional `weightPerUnit` (KG). During sales, line weight = quantity × weightPerUnit. Total weight = sum of all line weights. Stored in `sales.total_weight`.
-- **COD Fee:** Optional 1% fee on subtotal. Frontend sends `addCodFee: true/false`. Backend recalculates: `codFee = subtotal × 0.01`. Grand total = subtotal + codFee. Both codFee and totalWeight are calculated server-side for data integrity.
-- **Invoice:** Shows Items Total, COD Fee (if any), Subtotal, Delivery Charge (invoice-only), Grand Total, Weight
+- **COD Fee:** Optional 1% fee on subtotal. Frontend sends `addCodFee: true/false`. Backend recalculates: `codFee = subtotal × 0.01`.
+- **Sale Total:** Grand Total = Subtotal + COD Fee + Delivery Charge + Packing Charge. Due = Grand Total - Paid. Backend delivery rates: ≤0.5kg=110, ≤1kg=130, >1kg=130+ceil(weight-1)×20. Packing: >5kg=15, else 10.
+- **Courier COD:** Defaults to sale's dueAmount (not totalPrice). COD Amount = Sale Due.
+- **Invoice:** Shows Items Total, COD Fee (if any), Subtotal, Delivery Charge, Grand Total, Weight
 
 ## Dashboard Financial Formulas
 - **Total Profit** = Total Sales Revenue - Total Cost of Goods Sold (no expense deduction). Courier sales only count when delivered.

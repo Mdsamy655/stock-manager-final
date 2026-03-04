@@ -272,8 +272,8 @@ export async function registerRoutes(
 
       let deliveryCharge = 0;
       if (totalWeight > 0) {
-        if (totalWeight <= 0.5) deliveryCharge = 60;
-        else if (totalWeight <= 1) deliveryCharge = 110;
+        if (totalWeight <= 0.5) deliveryCharge = 110;
+        else if (totalWeight <= 1) deliveryCharge = 130;
         else deliveryCharge = 130 + Math.ceil(totalWeight - 1) * 20;
       }
       let packingCharge = 0;
@@ -281,7 +281,7 @@ export async function registerRoutes(
         packingCharge = totalWeight > 5 ? 15 : 10;
       }
 
-      const totalAmount = subtotal + codFee;
+      const totalAmount = subtotal + codFee + deliveryCharge + packingCharge;
       const paid = paidAmount !== undefined ? paidAmount : totalAmount;
       const due = totalAmount - paid;
 
@@ -640,7 +640,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Customer name, phone and address are required for courier" });
       }
 
-      const codAmount = req.body?.amount !== undefined ? Number(req.body.amount) : sale.totalPrice;
+      const codAmount = req.body?.amount !== undefined ? Number(req.body.amount) : sale.dueAmount;
       const saleWithAmount = { ...sale, totalPrice: codAmount };
       const result = await createSteadfastOrder(config, saleWithAmount);
       const updated = await storage.updateSaleCourier(id, userId, result.consignment_id, "pending");

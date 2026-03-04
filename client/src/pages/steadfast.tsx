@@ -298,7 +298,7 @@ export default function Steadfast() {
                       <Input
                         type="number"
                         className="w-[120px] font-semibold"
-                        value={amountOverrides[sale.id] ?? sale.totalPrice}
+                        value={amountOverrides[sale.id] ?? sale.dueAmount}
                         onChange={(e) => {
                           const val = parseFloat(e.target.value) || 0;
                           setAmountOverrides((prev) => ({ ...prev, [sale.id]: val }));
@@ -325,13 +325,13 @@ export default function Steadfast() {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Send to Steadfast?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                This will create a consignment for {sale.customerName} with COD amount {formatTaka(amountOverrides[sale.id] ?? sale.totalPrice)}.
+                                This will create a consignment for {sale.customerName} with COD amount {formatTaka(amountOverrides[sale.id] ?? sale.dueAmount)}.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel data-testid="button-cancel-send">Cancel</AlertDialogCancel>
                               <AlertDialogAction
-                                onClick={() => sendToCourier.mutate({ saleId: sale.id, amount: amountOverrides[sale.id] ?? sale.totalPrice })}
+                                onClick={() => sendToCourier.mutate({ saleId: sale.id, amount: amountOverrides[sale.id] ?? sale.dueAmount })}
                                 data-testid="button-confirm-send"
                               >
                                 Confirm Send
