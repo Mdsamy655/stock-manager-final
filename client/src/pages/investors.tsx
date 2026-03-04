@@ -267,6 +267,7 @@ export default function Investors() {
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="text-right">Share %</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead className="text-right">Date</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -275,10 +276,12 @@ export default function Investors() {
                 <TableBody>
                   {investorsList.map((investor) => {
                     const product = investor.productId ? productsList?.find((p) => p.id === investor.productId) : null;
+                    const sharePercent = totalInvestment > 0 ? (investor.investedAmount / totalInvestment) * 100 : 0;
                     return (
                       <TableRow key={investor.id} data-testid={`row-investor-${investor.id}`}>
                         <TableCell className="font-medium">{investor.name}</TableCell>
                         <TableCell className="text-right font-medium">{formatTaka(investor.investedAmount)}</TableCell>
+                        <TableCell className="text-right font-medium">{sharePercent.toFixed(2)}%</TableCell>
                         <TableCell>
                           <Badge variant="secondary">
                             {investor.investmentType === "cash" ? "Cash" : `Product${product ? ` (${product.name})` : ""}`}
