@@ -73,7 +73,7 @@ A professional inventory management system built with Node.js, Express, React, a
 - **Total Profit** = Total Sales Revenue - Total Cost of Goods Sold (no expense deduction)
 - **Total Investment** = Sum of all investor contributions only (profit excluded)
 - **Stock Value** = Sum of (Cost Price × Current Stock) for all products
-- **Cash In Hand** = Total Investment - Stock Value - Total Expenses
+- **Cash In Hand** = Total Investment + Total Profit - Total Expenses - Stock Value
 - **Working Capital** = Cash In Hand + Stock Value
 - **Buying products:** decreases Cash In Hand, increases Stock Value, Total Investment unchanged
 - **Expenses:** decrease Cash In Hand, increase Total Expenses
