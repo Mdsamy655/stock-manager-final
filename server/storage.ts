@@ -740,32 +740,21 @@ export class DatabaseStorage implements IStorage {
     const totalCostOfSold = activeItems.reduce((sum, item) => sum + item.costPrice * item.quantity, 0) +
       activeSales.filter((s) => !itemSaleIds.has(s.id) && s.costPrice && s.quantity)
         .reduce((sum, s) => sum + (s.costPrice! * s.quantity!), 0);
-    const totalInvestment = allProducts.reduce(
-  (sum, p) => sum + p.costPrice * p.stock,
-  0
-);
     const currentStockValue = allProducts.reduce(
-  (sum, p) => sum + p.costPrice * p.stock,
-  0
-);
+      (sum, p) => sum + p.costPrice * p.stock,
+      0
+    );
     const normalExpenses = allExpenses.filter((e) => e.category !== "Permanent Asset");
     const totalExpenses = normalExpenses.reduce((sum, e) => sum + e.amount, 0);
     const totalPermanentAssets = allExpenses.filter((e) => e.category === "Permanent Asset").reduce((sum, e) => sum + e.amount, 0);
-    const totalProfit = totalSales - totalCostOfSold - totalExpenses;
+    const totalProfit = totalSales - totalCostOfSold;
     const totalProducts = allProducts.length;
     const lowStockProducts = allProducts.filter((p) => p.stock <= 5).length;
 
-    const totalAllInvestment = allInvestors.reduce((sum, i) => sum + i.investedAmount, 0);
-    const availableWorkingCapital = totalAllInvestment - totalExpenses;
-
-    const allPurchases = await db.select().from(purchases).where(eq(purchases.userId, userId));
-    const totalPaidFromSales = activeSales.reduce((sum, s) => sum + (s.paidAmount ?? s.totalPrice), 0);
-    const cashInvestorAmount = allInvestors
-      .filter((i) => i.investmentType === "cash")
-      .reduce((sum, i) => sum + i.investedAmount, 0);
-    const totalPurchaseCost = allPurchases.reduce((sum, p) => sum + p.totalCost, 0);
-    const totalAllExpenses = allExpenses.reduce((sum, e) => sum + e.amount, 0);
-    const cashInHand = totalPaidFromSales + cashInvestorAmount - totalAllExpenses - totalPurchaseCost;
+    const initialInvestment = allInvestors.reduce((sum, i) => sum + i.investedAmount, 0);
+    const totalInvestment = initialInvestment + totalProfit;
+    const cashInHand = totalInvestment - currentStockValue - totalExpenses;
+    const availableWorkingCapital = cashInHand + currentStockValue;
 
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -788,11 +777,8 @@ export class DatabaseStorage implements IStorage {
       monthSalesRows.filter((s) => !itemSaleIds.has(s.id) && s.costPrice && s.quantity)
         .reduce((sum, s) => sum + (s.costPrice! * s.quantity!), 0);
 
-    const todayExpenses = normalExpenses.filter((e) => e.createdAt && new Date(e.createdAt) >= todayStart).reduce((sum, e) => sum + e.amount, 0);
-    const monthExpenses = normalExpenses.filter((e) => e.createdAt && new Date(e.createdAt) >= monthStart).reduce((sum, e) => sum + e.amount, 0);
-
-    const todayProfit = todaySales - todayCost - todayExpenses;
-    const monthProfit = monthSales - monthCost - monthExpenses;
+    const todayProfit = todaySales - todayCost;
+    const monthProfit = monthSales - monthCost;
 
     return {
       totalSales,

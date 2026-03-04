@@ -69,6 +69,16 @@ A professional inventory management system built with Node.js, Express, React, a
 - **COD Fee:** Optional 1% fee on subtotal. Frontend sends `addCodFee: true/false`. Backend recalculates: `codFee = subtotal × 0.01`. Grand total = subtotal + codFee. Both codFee and totalWeight are calculated server-side for data integrity.
 - **Invoice:** Shows Items Total, COD Fee (if any), Subtotal, Delivery Charge (invoice-only), Grand Total, Weight
 
+## Dashboard Financial Formulas
+- **Total Profit** = Total Sales Revenue - Total Cost of Goods Sold (no expense deduction)
+- **Total Investment** = Initial Investment (sum of all investor contributions) + Total Profit
+- **Stock Value** = Sum of (Cost Price × Current Stock) for all products
+- **Cash In Hand** = Total Investment - Stock Value - Total Expenses
+- **Working Capital** = Cash In Hand + Stock Value
+- **Buying products:** decreases Cash In Hand, increases Stock Value, Total Investment unchanged
+- **Expenses:** decrease Cash In Hand, increase Total Expenses
+- **Today/Month Profit** follows same rule: sales revenue minus cost of goods sold (no expense deduction)
+
 ## Design Decisions
 - All data tables have `user_id` column for multi-user isolation (currently all requests use user id=4)
 - Products have unique productCode for barcode/QR scanning
