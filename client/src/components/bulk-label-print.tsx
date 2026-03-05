@@ -28,16 +28,16 @@ const BULK_PRINT_STYLES = `
   .page {
   width: 210mm;
   height: 297mm;
-  padding: 6mm;
+  padding: 4mm 3mm;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6mm;
+  gap: 3mm;
   page-break-after: always;
 }
   .page:last-child { page-break-after: auto; break-after: auto; }
   .label-card {
-  width: 70mm;
-  height: 95mm;
+  width: 68mm;
+  height: 90mm;
   border: 1.5px solid #333;
   border-radius: 4px;
   overflow: hidden;
@@ -78,7 +78,7 @@ const BULK_PRINT_STYLES = `
   .body-section + .body-section { border-left: 1px solid #ddd; }
   .section-title { font-size: 6px; font-weight: 700; text-transform: uppercase; color: #999; letter-spacing: 0.8px; margin-bottom: 1px; }
   .section-name { font-size: 9.5px; font-weight: 600; line-height: 1.2; }
-  .section-detail { font-size: 8px; color: #444; line-height: 1.3; margin-top: 1px; }
+  .section-detail { font-size: 8px; color: #444; line-height: 1.3; margin-top: 1px; font-weight: bold; }
   .cod-qr-row {
     display: flex;
     align-items: center;
@@ -93,12 +93,17 @@ const BULK_PRINT_STYLES = `
   .cod-label { font-size: 6.5px; text-transform: uppercase; color: #888; letter-spacing: 0.8px; margin-bottom: 1px; }
   .cod-value { font-size: 16px; font-weight: 800; color: #dc2626; }
   .qr-section {
-    padding: 3px 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-left: 1px solid #ddd;
-  }
+padding: 3px 10px;
+display: flex;
+align-items: center;
+justify-content: center;
+border-left: 1px solid #ddd;
+}
+
+.qr-section svg{
+width:100px;
+height:100px;
+}
   .footer-row {
     display: flex;
     justify-content: space-between;
