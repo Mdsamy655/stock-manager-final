@@ -475,6 +475,7 @@ export default function Sales() {
           unitPrice: item.salePrice,
         })),
         addCodFee,
+        totalWeight: effectiveWeight,
       };
       if (customerMode === "existing" && customerId && customerId !== "none") {
         body.customerId = Number(customerId);
