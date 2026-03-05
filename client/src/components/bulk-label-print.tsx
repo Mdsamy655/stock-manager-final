@@ -8,8 +8,17 @@ function formatTaka(amount: number): string {
 }
 
 function formatLabelDate(date: string | Date | null): string {
-  if (!date) return new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-  return new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  if (!date)
+    return new Date().toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  return new Date(date).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 const BULK_PRINT_STYLES = `
@@ -17,26 +26,24 @@ const BULK_PRINT_STYLES = `
   html, body { width: 210mm; font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a1a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   @page { size: A4 portrait; margin: 0; }
   .page {
-    width: 210mm;
-    height: 297mm;
-    padding: 6mm 10mm;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    page-break-after: always;
-    break-after: page;
-  }
+  width: 210mm;
+  height: 297mm;
+  padding: 6mm;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6mm;
+  page-break-after: always;
+}
   .page:last-child { page-break-after: auto; break-after: auto; }
   .label-card {
-    width: 100%;
-    height: 91mm;
-    border: 1.5px solid #333;
-    border-radius: 4px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 3mm;
-  }
+  width: 70mm;
+  height: 95mm;
+  border: 1.5px solid #333;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
   .label-header {
     background: #1a1a1a;
     color: #fff;
@@ -104,13 +111,25 @@ const BULK_PRINT_STYLES = `
   .footer-row strong { color: #333; }
 `;
 
-function buildSingleLabelHtml(sale: SaleWithItems, companyName: string, companyPhone: string, companyAddress: string): string {
-  const codAmount = sale.paidAmount === 0 ? sale.totalPrice : sale.dueAmount > 0 ? sale.dueAmount : sale.totalPrice;
+function buildSingleLabelHtml(
+  sale: SaleWithItems,
+  companyName: string,
+  companyPhone: string,
+  companyAddress: string,
+): string {
+  const codAmount =
+    sale.paidAmount === 0
+      ? sale.totalPrice
+      : sale.dueAmount > 0
+        ? sale.dueAmount
+        : sale.totalPrice;
   const parcelId = sale.consignmentId || "N/A";
   const hasSender = companyName || companyPhone || companyAddress;
 
   const qrSvg = sale.consignmentId
-    ? renderToStaticMarkup(<QRCodeSVG value={sale.consignmentId} size={44} level="M" />)
+    ? renderToStaticMarkup(
+        <QRCodeSVG value={sale.consignmentId} size={44} level="M" />,
+      )
     : "";
 
   return `
@@ -124,14 +143,18 @@ function buildSingleLabelHtml(sale: SaleWithItems, companyName: string, companyP
         <div class="parcel-id-value">${parcelId}</div>
       </div>
       <div class="body-row">
-        ${hasSender ? `
+        ${
+          hasSender
+            ? `
           <div class="body-section">
             <div class="section-title">From / Sender</div>
             ${companyName ? `<div class="section-name">${companyName}</div>` : ""}
             ${companyPhone ? `<div class="section-detail">${companyPhone}</div>` : ""}
             ${companyAddress ? `<div class="section-detail">${companyAddress}</div>` : ""}
           </div>
-        ` : ""}
+        `
+            : ""
+        }
         <div class="body-section">
           <div class="section-title">To / Recipient</div>
           <div class="section-name">${sale.customerName || "N/A"}</div>
@@ -160,7 +183,10 @@ interface BulkLabelPrintProps {
   onClose: () => void;
 }
 
-export default function BulkLabelPrint({ sales, onClose }: BulkLabelPrintProps) {
+export default function BulkLabelPrint({
+  sales,
+  onClose,
+}: BulkLabelPrintProps) {
   const triggered = useRef(false);
 
   const companyName = localStorage.getItem("label_company_name") || "";
@@ -172,9 +198,13 @@ export default function BulkLabelPrint({ sales, onClose }: BulkLabelPrintProps) 
     triggered.current = true;
 
     const pages: string[] = [];
-    for (let i = 0; i < sales.length; i += 3) {
-      const chunk = sales.slice(i, i + 3);
-      const labelsHtml = chunk.map(s => buildSingleLabelHtml(s, companyName, companyPhone, companyAddress)).join("");
+    for (let i = 0; i < sales.length; i += 9) {
+      const chunk = sales.slice(i, i + 9);
+      const labelsHtml = chunk
+        .map((s) =>
+          buildSingleLabelHtml(s, companyName, companyPhone, companyAddress),
+        )
+        .join("");
       pages.push(`<div class="page">${labelsHtml}</div>`);
     }
 
