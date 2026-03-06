@@ -682,6 +682,17 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/transaction-history/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      await storage.deleteTransactionHistory(id, req.user!.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.get("/api/steadfast-config", async (req, res) => {
     try {
       const config = await storage.getSteadfastConfig(req.user!.id);

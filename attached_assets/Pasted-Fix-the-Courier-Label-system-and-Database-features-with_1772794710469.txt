@@ -1,0 +1,116 @@
+Fix the Courier Label system and Database features with the following requirements.
+
+---
+
+BULK PRINT FIX
+
+1. Bulk print must show 9 labels per A4 page.
+   Grid layout: 3 × 3.
+
+2. Increase the recipient address area so the address is clearly visible.
+
+3. Address text must be larger, darker, and bold so it can be read easily.
+
+4. Reduce unnecessary empty space above the QR code.
+
+5. QR code and Barcode must NOT be side by side.
+
+Use this layout instead:
+
+TOP
+Tracking Number
+
+MIDDLE
+Sender / Recipient / Address
+
+BOTTOM
+COD + Weight
+
+BOTTOM SECTION
+Large QR Code
+
+UNDER QR
+Large Barcode
+
+6. Make the QR code larger so it is easy to scan.
+
+7. Make the barcode larger and clearer.
+
+8. Labels must look professional similar to courier companies (Pathao / RedX style).
+
+9. Add footer text on every label:
+
+Powered by CPSBD Business (FB Page)
+
+Rules for footer:
+
+- Must be bold
+- Must be clearly visible
+- User cannot remove or edit it
+
+---
+
+SINGLE PRINT FIX
+
+1. Single print must generate ONLY 1 label per page.
+
+2. Remove the "3 labels per page" layout from single print.
+
+3. The single print layout must use the full A4 page.
+
+4. Fix the QR code rendering issue.
+
+Currently it prints:
+[object SVGSVGElement]
+
+Instead render the QR code correctly as SVG or image.
+
+5. Single print label layout:
+
+TOP
+Tracking Number
+
+CENTER
+Sender / Recipient / Address
+
+BOTTOM
+COD + Weight
+
+BOTTOM AREA
+Large QR Code
+
+UNDER QR
+Large Barcode
+
+6. Make QR code large and clear.
+
+7. Make barcode large and centered.
+
+8. Footer must remain:
+
+Powered by CPSBD Business (FB Page)
+
+Footer must be bold and visible.
+
+---
+
+DATABASE DELETE OPTION
+
+1. Add a DELETE button in the Database Activity Records table.
+
+2. Table columns should be:
+
+Date | Type | Reference | Description | Amount | Action
+
+3. The Action column must contain a Delete button.
+
+4. When user clicks Delete, show confirmation popup:
+
+"Are you sure you want to delete this record?"
+
+5. If user confirms:
+   Delete the record from the database.
+
+6. After deletion, automatically refresh the table.
+
+This will allow users to remove wrong or unnecessary financial records.

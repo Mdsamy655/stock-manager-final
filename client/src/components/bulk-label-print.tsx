@@ -30,18 +30,18 @@ const BULK_PRINT_STYLES = `
   .page {
     width: 210mm;
     height: 297mm;
-    padding: 4mm 4mm;
+    padding: 3mm 3mm;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(3, 1fr);
-    gap: 2.5mm;
+    gap: 2mm;
     page-break-after: always;
   }
   .page:last-child { page-break-after: auto; break-after: auto; }
   .label-card {
     width: 100%;
     height: 100%;
-    border: 1.5px solid #222;
+    border: 1.5px solid #111;
     border-radius: 3px;
     overflow: hidden;
     display: flex;
@@ -51,23 +51,23 @@ const BULK_PRINT_STYLES = `
   .label-header {
     background: #111;
     color: #fff;
-    padding: 2px 5px;
+    padding: 1.5px 4px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-shrink: 0;
   }
-  .label-header-left { font-size: 5px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase; }
+  .label-header-left { font-size: 5px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
   .label-header-right { font-size: 5px; opacity: 0.9; }
   .tracking-row {
-    padding: 3px 5px 2px;
+    padding: 2px 4px 1.5px;
     text-align: center;
-    border-bottom: 1.5px solid #222;
-    background: #f8f8f8;
+    border-bottom: 1.5px solid #111;
+    background: #f5f5f5;
     flex-shrink: 0;
   }
-  .tracking-label { font-size: 4.5px; text-transform: uppercase; color: #666; letter-spacing: 1px; margin-bottom: 1px; font-weight: 600; }
-  .tracking-value { font-size: 14px; font-weight: 900; letter-spacing: 2px; color: #000; line-height: 1.1; }
+  .tracking-label { font-size: 4px; text-transform: uppercase; color: #555; letter-spacing: 0.8px; margin-bottom: 0.5px; font-weight: 700; }
+  .tracking-value { font-size: 13px; font-weight: 900; letter-spacing: 1.5px; color: #000; line-height: 1.1; }
   .details-row {
     display: flex;
     border-bottom: 1px solid #ddd;
@@ -75,50 +75,51 @@ const BULK_PRINT_STYLES = `
   }
   .detail-section {
     flex: 1;
-    padding: 3px 5px;
+    padding: 2.5px 4px;
     overflow: hidden;
   }
   .detail-section + .detail-section { border-left: 1px solid #ddd; }
-  .detail-title { font-size: 4.5px; font-weight: 700; text-transform: uppercase; color: #999; letter-spacing: 0.6px; margin-bottom: 1px; }
-  .detail-name { font-size: 8.5px; font-weight: 800; line-height: 1.2; color: #000; }
-  .detail-phone { font-size: 7.5px; color: #111; line-height: 1.2; margin-top: 1px; font-weight: 700; }
+  .detail-title { font-size: 4px; font-weight: 800; text-transform: uppercase; color: #888; letter-spacing: 0.5px; margin-bottom: 1px; }
+  .detail-name { font-size: 8px; font-weight: 900; line-height: 1.2; color: #000; }
+  .detail-phone { font-size: 7px; color: #000; line-height: 1.2; margin-top: 0.5px; font-weight: 800; }
   .detail-address {
-    font-size: 7px; color: #222; line-height: 1.25; margin-top: 1px; font-weight: 700;
+    font-size: 7.5px; color: #111; line-height: 1.2; margin-top: 0.5px; font-weight: 800;
     display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
   }
   .cod-weight-line {
     text-align: center;
-    padding: 2px 5px;
+    padding: 2px 4px;
     border-bottom: 1px solid #ddd;
     background: #fff5f5;
     flex-shrink: 0;
-    font-size: 8px;
-    font-weight: 800;
+    font-size: 7.5px;
+    font-weight: 900;
     color: #111;
   }
   .cod-weight-line .cod-val { color: #dc2626; }
-  .cod-weight-line .sep { margin: 0 4px; color: #ccc; }
-  .codes-row {
+  .cod-weight-line .sep { margin: 0 3px; color: #ccc; }
+  .codes-section {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 3px 5px;
+    padding: 2px 4px;
     background: #fafafa;
     flex: 1;
     min-height: 0;
+    gap: 2px;
   }
   .qr-box { flex-shrink: 0; }
-  .qr-box svg { width: 54px; height: 54px; }
-  .barcode-box { flex: 1; text-align: center; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-  .barcode-box svg { max-width: 100%; height: 38px; }
+  .qr-box svg { width: 52px; height: 52px; }
+  .barcode-box { width: 90%; text-align: center; overflow: hidden; }
+  .barcode-box svg { max-width: 100%; height: 28px; }
   .label-footer {
     text-align: center;
-    padding: 2px 5px;
-    font-size: 5.5px;
-    font-weight: 700;
-    color: #666;
-    background: #f0f0f0;
+    padding: 1.5px 4px;
+    font-size: 5px;
+    font-weight: 800;
+    color: #444;
+    background: #e8e8e8;
     letter-spacing: 0.3px;
     flex-shrink: 0;
     border-top: 1px solid #ddd;
@@ -142,11 +143,11 @@ function buildSingleLabelHtml(
   const weight = sale.totalWeight ?? 0;
 
   const qrSvg = sale.consignmentId
-    ? renderToStaticMarkup(<QRCodeSVG value={sale.consignmentId} size={54} level="M" />)
+    ? renderToStaticMarkup(<QRCodeSVG value={sale.consignmentId} size={52} level="M" />)
     : "";
 
   const barcodeSvg = sale.consignmentId
-    ? generateBarcodeSvgString(sale.consignmentId, 38, 1.8)
+    ? generateBarcodeSvgString(sale.consignmentId, 28, 1.5)
     : "";
 
   return `
@@ -181,7 +182,7 @@ function buildSingleLabelHtml(
         Weight: ${weight > 0 ? `${weight.toFixed(2)} KG` : "—"}
       </div>
       ${sale.consignmentId ? `
-        <div class="codes-row">
+        <div class="codes-section">
           <div class="qr-box">${qrSvg}</div>
           <div class="barcode-box">${barcodeSvg}</div>
         </div>

@@ -123,6 +123,7 @@ export interface IStorage {
 
   getTransactionHistory(userId: number): Promise<TransactionHistory[]>;
   createTransactionHistory(userId: number, entry: InsertTransactionHistory): Promise<TransactionHistory>;
+  deleteTransactionHistory(id: number, userId: number): Promise<void>;
 }
 
 async function attachItemsToSales(salesRows: Sale[]): Promise<SaleWithItems[]> {
@@ -755,6 +756,10 @@ export class DatabaseStorage implements IStorage {
   async createTransactionHistory(userId: number, entry: InsertTransactionHistory): Promise<TransactionHistory> {
     const [created] = await db.insert(transactionHistory).values({ ...entry, userId }).returning();
     return created;
+  }
+
+  async deleteTransactionHistory(id: number, userId: number): Promise<void> {
+    await db.delete(transactionHistory).where(and(eq(transactionHistory.id, id), eq(transactionHistory.userId, userId)));
   }
 
   async getDashboardStats(userId: number): Promise<DashboardStats> {
