@@ -17,6 +17,7 @@ import Payments from "@/pages/payments";
 import Investors from "@/pages/investors";
 import Suppliers from "@/pages/suppliers";
 import Steadfast from "@/pages/steadfast";
+import DatabasePage from "@/pages/database";
 
 function Router() {
   return (
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/investors" component={Investors} />
       <Route path="/suppliers" component={Suppliers} />
       <Route path="/steadfast" component={Steadfast} />
+      <Route path="/database" component={DatabasePage} />
       <Route component={NotFound} />
     </Switch>
   );

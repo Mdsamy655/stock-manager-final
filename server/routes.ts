@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { sales, expenses, products, insertProductSchema, insertExpenseSchema, insertSupplierSchema, insertPurchaseSchema, insertCustomerSchema, insertInvestorSchema, type SaleWithItems } from "@shared/schema";
+import { sales, expenses, products, transactions, insertProductSchema, insertExpenseSchema, insertSupplierSchema, insertPurchaseSchema, insertCustomerSchema, insertInvestorSchema, type SaleWithItems } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { createSteadfastOrder, checkSteadfastStatus } from "./steadfast";
@@ -330,6 +330,18 @@ export async function registerRoutes(
         items: resolvedItems,
       });
 
+      const itemNames = resolvedItems.map(i => `${i.productName} x${i.quantity}`).join(", ");
+      const totalCost = resolvedItems.reduce((sum, i) => sum + i.costPrice * i.quantity, 0);
+      const saleProfit = subtotal - totalCost;
+      await storage.createTransaction(userId, {
+        category: "Sale",
+        source: `Sale #${sale.id}`,
+        description: `${itemNames}${resolvedCustomerName ? ` - ${resolvedCustomerName}` : ""}`,
+        debit: 0,
+        credit: totalAmount,
+        profit: saleProfit,
+      });
+
       res.status(201).json(sale);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -375,6 +387,17 @@ export async function registerRoutes(
     try {
       const parsed = insertExpenseSchema.parse(req.body);
       const expense = await storage.createExpense(req.user!.id, parsed);
+
+      const isDelivery = parsed.category === "Delivery";
+      await storage.createTransaction(req.user!.id, {
+        category: isDelivery ? "Courier Expense" : "Expense",
+        source: `Expense #${expense.id}`,
+        description: parsed.description,
+        debit: parsed.amount,
+        credit: 0,
+        profit: 0,
+      });
+
       res.status(201).json(expense);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -454,6 +477,16 @@ export async function registerRoutes(
         unitCost: product.costPrice,
         totalCost: product.costPrice * quantity,
       });
+
+      await storage.createTransaction(userId, {
+        category: "Purchase",
+        source: `Purchase #${purchase.id}`,
+        description: `${product.name} x${quantity}${supplierName ? ` from ${supplierName}` : ""}`,
+        debit: product.costPrice * quantity,
+        credit: 0,
+        profit: 0,
+      });
+
       res.status(201).json(purchase);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -545,6 +578,16 @@ export async function registerRoutes(
       }).parse(req.body);
 
       const payment = await storage.createPayment(req.user!.id, customerId, amount);
+
+      await storage.createTransaction(req.user!.id, {
+        category: "Payment Received",
+        source: `Payment #${payment.id}`,
+        description: `Payment from ${payment.customerName}`,
+        debit: 0,
+        credit: amount,
+        profit: 0,
+      });
+
       res.status(201).json(payment);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -575,6 +618,17 @@ export async function registerRoutes(
     try {
       const parsed = insertInvestorSchema.parse(req.body);
       const investor = await storage.createInvestor(req.user!.id, parsed);
+
+      const isWithdrawal = parsed.investedAmount < 0;
+      await storage.createTransaction(req.user!.id, {
+        category: isWithdrawal ? "Withdrawal" : "Investment",
+        source: `Investor #${investor.id}`,
+        description: `${parsed.name} - ${parsed.investmentType}`,
+        debit: isWithdrawal ? Math.abs(parsed.investedAmount) : 0,
+        credit: isWithdrawal ? 0 : parsed.investedAmount,
+        profit: 0,
+      });
+
       res.status(201).json(investor);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -587,6 +641,15 @@ export async function registerRoutes(
       const deleted = await storage.deleteInvestor(id, req.user!.id);
       if (!deleted) return res.status(404).json({ message: "Investor not found" });
       res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/transactions", async (req, res) => {
+    try {
+      const transactionsList = await storage.getTransactions(req.user!.id);
+      res.json(transactionsList);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -655,10 +718,19 @@ export async function registerRoutes(
           (e) => e.category === "Delivery" && e.description.includes(orderTag)
         );
         if (!courierExpenseExists) {
-          await storage.createExpense(userId, {
+          const courierExpense = await storage.createExpense(userId, {
             description: `Courier charge - Order #${id} (${sale.customerName || "Unknown"})`,
             amount: courierChargeAmount,
             category: "Delivery",
+          });
+
+          await storage.createTransaction(userId, {
+            category: "Courier Expense",
+            source: `Expense #${courierExpense.id}`,
+            description: `Courier charge - Order #${id} (${sale.customerName || "Unknown"})`,
+            debit: courierChargeAmount,
+            credit: 0,
+            profit: 0,
           });
         }
       }
@@ -721,6 +793,31 @@ export async function registerRoutes(
         await db.update(products).set({
           stock: sql`stock + ${item.quantity}`,
         }).where(eq(products.id, item.productId));
+      }
+
+      const deliveryChargeAmount = sale.deliveryCharge ?? 0;
+      if (deliveryChargeAmount > 0) {
+        const allExpenses = await storage.getExpenses(userId);
+        const returnTag = `Return delivery charge - Order #${saleId}`;
+        const returnExpenseExists = allExpenses.some(
+          (e) => e.category === "Delivery" && e.description.includes(returnTag)
+        );
+        if (!returnExpenseExists) {
+          const returnExpense = await storage.createExpense(userId, {
+            description: `Return delivery charge - Order #${saleId} (${sale.customerName || "Unknown"})`,
+            amount: deliveryChargeAmount,
+            category: "Delivery",
+          });
+
+          await storage.createTransaction(userId, {
+            category: "Return Charge",
+            source: `Expense #${returnExpense.id}`,
+            description: `Return delivery charge - Order #${saleId} (${sale.customerName || "Unknown"})`,
+            debit: deliveryChargeAmount,
+            credit: 0,
+            profit: 0,
+          });
+        }
       }
     }
 

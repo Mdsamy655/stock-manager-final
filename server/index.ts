@@ -147,10 +147,19 @@ process.on("unhandledRejection", (reason) => {
 
                   const deliveryChargeAmount = order.deliveryCharge ?? 0;
                   if (deliveryChargeAmount > 0) {
-                    await storage.createExpense(config.userId, {
+                    const returnExpense = await storage.createExpense(config.userId, {
                       description: `Return delivery charge - Order #${order.id} (${order.customerName || "Unknown"})`,
                       amount: deliveryChargeAmount,
                       category: "Delivery",
+                    });
+
+                    await storage.createTransaction(config.userId, {
+                      category: "Return Charge",
+                      source: `Expense #${returnExpense.id}`,
+                      description: `Return delivery charge - Order #${order.id} (${order.customerName || "Unknown"})`,
+                      debit: deliveryChargeAmount,
+                      credit: 0,
+                      profit: 0,
                     });
                   }
                 }

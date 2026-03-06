@@ -12,6 +12,7 @@ import {
   payments,
   investors,
   steadfastConfig,
+  transactions,
   type User,
   type InsertUser,
   type Product,
@@ -36,6 +37,8 @@ import {
   stockHistory,
   type StockHistory,
   type SteadfastConfig,
+  type Transaction,
+  type InsertTransaction,
 } from "@shared/schema";
 
 interface CreateSaleInput {
@@ -115,6 +118,9 @@ export interface IStorage {
   getSalesByCustomer(customerId: number, userId: number): Promise<SaleWithItems[]>;
 
   getDashboardStats(userId: number): Promise<DashboardStats>;
+
+  getTransactions(userId: number): Promise<Transaction[]>;
+  createTransaction(userId: number, transaction: InsertTransaction): Promise<Transaction>;
 }
 
 async function attachItemsToSales(salesRows: Sale[]): Promise<SaleWithItems[]> {
@@ -721,6 +727,15 @@ export class DatabaseStorage implements IStorage {
   async getSalesByCustomer(customerId: number, userId: number): Promise<SaleWithItems[]> {
     const salesRows = await db.select().from(sales).where(and(eq(sales.customerId, customerId), eq(sales.userId, userId))).orderBy(desc(sales.createdAt));
     return attachItemsToSales(salesRows);
+  }
+
+  async getTransactions(userId: number): Promise<Transaction[]> {
+    return db.select().from(transactions).where(eq(transactions.userId, userId)).orderBy(desc(transactions.date));
+  }
+
+  async createTransaction(userId: number, transaction: InsertTransaction): Promise<Transaction> {
+    const [created] = await db.insert(transactions).values({ ...transaction, userId }).returning();
+    return created;
   }
 
   async getDashboardStats(userId: number): Promise<DashboardStats> {

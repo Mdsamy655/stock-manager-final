@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, ShoppingCart, Receipt, PackagePlus, Users, Banknote, Landmark, Truck, LogOut } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, Receipt, PackagePlus, Users, Banknote, Landmark, Truck, LogOut, Database } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -24,6 +24,7 @@ const navItems = [
   { title: "Payments", url: "/payments", icon: Banknote },
   { title: "Investors", url: "/investors", icon: Landmark },
   { title: "Steadfast", url: "/steadfast", icon: Truck },
+  { title: "Database", url: "/database", icon: Database },
 ];
 
 interface AppSidebarProps {
