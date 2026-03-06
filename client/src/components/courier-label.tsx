@@ -85,7 +85,9 @@ const SINGLE_PRINT_STYLES = `
   .details-row {
     display: flex;
     border-bottom: 2px solid #ddd;
-    flex-shrink: 0;
+    flex-shrink: 1;
+    min-height: 0;
+    overflow: hidden;
   }
   .detail-section {
     flex: 1;
@@ -96,7 +98,7 @@ const SINGLE_PRINT_STYLES = `
   .detail-title { font-size: 10px; font-weight: 800; text-transform: uppercase; color: #888; letter-spacing: 1.5px; margin-bottom: 5px; }
   .detail-name { font-size: 18px; font-weight: 800; line-height: 1.3; color: #000; }
   .detail-phone { font-size: 16px; color: #111; line-height: 1.3; margin-top: 4px; font-weight: 700; }
-  .detail-address { font-size: 14px; color: #222; line-height: 1.4; margin-top: 3px; font-weight: 700; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .detail-address { font-size: 14px; color: #222; line-height: 1.4; margin-top: 3px; font-weight: 700; }
   .cod-weight-line {
     text-align: center;
     padding: 10px 20px;

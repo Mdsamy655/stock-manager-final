@@ -79,7 +79,9 @@ const BULK_PRINT_STYLES = `
   .details-row {
   display: flex;
   border-bottom: 1px solid #ddd;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-height: 0;
+  overflow: hidden;
   margin-top: 6px;
 }
   .detail-section {
@@ -97,10 +99,6 @@ const BULK_PRINT_STYLES = `
   line-height: 1.3;
   margin-top: 1px;
   font-weight: 800;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
   .cod-weight-line {
     text-align: center;
@@ -135,7 +133,7 @@ const BULK_PRINT_STYLES = `
   font-size: 18px; 
   font-weight: 900; 
   color: #000; 
-  letter-spacing: 2px; 
+  letter-spacing: 3px; 
   margin-top: 4px;
   margin-bottom: 4px;
 }
