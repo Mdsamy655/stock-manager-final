@@ -799,7 +799,13 @@ export class DatabaseStorage implements IStorage {
     const lowStockProducts = allProducts.filter((p) => p.stock <= 5).length;
 
     const totalInvestment = allInvestors.reduce((sum, i) => sum + i.investedAmount, 0);
-    const cashInHand = totalInvestment + totalProfit - otherExpenses - currentStockValue;
+
+    const allTransactionHistory = await db.select().from(transactionHistory).where(eq(transactionHistory.userId, userId));
+    const totalReturnCharges = allTransactionHistory
+      .filter((t) => t.actionType === "Return Charge")
+      .reduce((sum, t) => sum + (t.amount ?? 0), 0);
+
+    const cashInHand = totalInvestment + totalProfit - otherExpenses - currentStockValue - totalReturnCharges;
     const availableWorkingCapital = cashInHand + currentStockValue;
 
     const now = new Date();

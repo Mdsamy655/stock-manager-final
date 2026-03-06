@@ -81,7 +81,7 @@ A professional inventory management system built with Node.js, Express, React, a
 - **Total Profit** = Sum of (unitPrice - costPrice) × quantity per item. Product margin only — delivery/packing excluded. Courier sales only count when delivered.
 - **Total Investment** = Sum of all investor contributions only (profit excluded)
 - **Stock Value** = Sum of (Cost Price × Current Stock) for all products
-- **Cash In Hand** = Total Investment + Total Profit - Other Expenses - Stock Value (courier expenses excluded since delivery is a pass-through)
+- **Cash In Hand** = Total Investment + Total Profit - Other Expenses - Stock Value - Return Charges (courier expenses excluded since delivery is a pass-through; return charges from transaction_history deducted)
 - **Working Capital** = Cash In Hand + Stock Value
 - **Buying products:** decreases Cash In Hand, increases Stock Value, Total Investment unchanged
 - **Expenses:** Other expenses decrease Cash In Hand. Courier expenses (Delivery category) are pass-through costs that don't affect profit or Cash In Hand.
