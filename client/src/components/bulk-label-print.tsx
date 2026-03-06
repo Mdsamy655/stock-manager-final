@@ -126,6 +126,7 @@ const BULK_PRINT_STYLES = `
   margin-top: 30px;
 }
   .qr-box svg { width: 85px; height: 85px; }
+  .parcel-id { text-align: center; font-size: 7px; font-weight: 700; color: #333; letter-spacing: 0.5px; }
   .barcode-box { width: 90%; text-align: center; overflow: hidden; }
   .barcode-box svg { 
   max-width: 100%;
@@ -211,6 +212,7 @@ function buildSingleLabelHtml(
           ? `
         <div class="codes-section">
           <div class="qr-box">${qrSvg}</div>
+          <div class="parcel-id">${escapeHtml(sale.consignmentId || "")}</div>
           <div class="barcode-box">${barcodeSvg}</div>
         </div>
       `

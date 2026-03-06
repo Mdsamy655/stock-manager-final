@@ -122,6 +122,7 @@ const SINGLE_PRINT_STYLES = `
   }
   .qr-box { flex-shrink: 0; }
   .qr-box svg { width: 140px; height: 140px; }
+  .parcel-id { text-align: center; font-size: 14px; font-weight: 700; color: #333; letter-spacing: 1px; }
   .barcode-box { width: 80%; text-align: center; overflow: hidden; }
   .barcode-box svg { max-width: 100%; height: 70px; }
   .label-footer {
@@ -292,6 +293,7 @@ export default function CourierLabel({
             ? `
           <div class="codes-section">
             <div class="qr-box">${qrSvg}</div>
+            <div class="parcel-id">${escapeHtml(sale.consignmentId || "")}</div>
             <div class="barcode-box">${barcodeSvg}</div>
           </div>
         `
