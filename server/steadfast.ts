@@ -14,6 +14,7 @@ interface SteadfastSale {
 
 export interface CreateOrderResult {
   consignment_id: string;
+  tracking_code: string;
 }
 
 export async function createSteadfastOrder(
@@ -59,7 +60,9 @@ export async function createSteadfastOrder(
     );
   }
 
-  return { consignment_id: String(consignmentId) };
+  const trackingCode = data.consignment?.tracking_code || data.tracking_code || "";
+
+  return { consignment_id: String(consignmentId), tracking_code: String(trackingCode) };
 }
 
 export interface StatusResult {

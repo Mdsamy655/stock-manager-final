@@ -746,7 +746,7 @@ export async function registerRoutes(
       const codAmount = req.body?.amount !== undefined ? Number(req.body.amount) : sale.dueAmount;
       const saleWithAmount = { ...sale, totalPrice: codAmount };
       const result = await createSteadfastOrder(config, saleWithAmount);
-      const updated = await storage.updateSaleCourier(id, userId, result.consignment_id, "pending");
+      const updated = await storage.updateSaleCourier(id, userId, result.consignment_id, "pending", result.tracking_code);
 
       const courierChargeAmount = sale.deliveryCharge ?? 0;
       if (courierChargeAmount > 0) {
@@ -892,7 +892,8 @@ export async function registerRoutes(
           const result = await checkSteadfastStatus(config, sale.consignmentId);
           const newStatus = result.delivery_status;
           const oldStatus = sale.courierStatus;
-          await storage.updateSaleCourier(saleId, userId, sale.consignmentId, newStatus);
+          const trackingCode = result.tracking_code || sale.trackingCode || undefined;
+          await storage.updateSaleCourier(saleId, userId, sale.consignmentId, newStatus, trackingCode);
           await applyCourierStatusFinancials(saleId, userId, sale, oldStatus, newStatus);
           results.push({ id: saleId, status: newStatus });
         } catch (err: any) {
@@ -922,7 +923,8 @@ export async function registerRoutes(
       const result = await checkSteadfastStatus(config, sale.consignmentId);
       const newStatus = result.delivery_status;
       const oldStatus = sale.courierStatus;
-      await storage.updateSaleCourier(id, userId, sale.consignmentId, newStatus);
+      const trackingCode = result.tracking_code || sale.trackingCode || undefined;
+      await storage.updateSaleCourier(id, userId, sale.consignmentId, newStatus, trackingCode);
 
       await applyCourierStatusFinancials(id, userId, sale, oldStatus, newStatus);
 

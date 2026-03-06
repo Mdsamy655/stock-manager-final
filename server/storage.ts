@@ -77,7 +77,7 @@ export interface IStorage {
   adjustStock(productId: number, userId: number, adjustmentType: string, quantity: number, reason?: string): Promise<StockHistory>;
   getStockHistory(productId: number): Promise<StockHistory[]>;
   deleteProduct(id: number, userId: number): Promise<boolean>;
-  updateSaleCourier(id: number, userId: number, consignmentId: string, courierStatus: string): Promise<SaleWithItems | null>;
+  updateSaleCourier(id: number, userId: number, consignmentId: string, courierStatus: string, trackingCode?: string): Promise<SaleWithItems | null>;
   cancelCourierOrder(id: number, userId: number): Promise<boolean>;
   getCourierSales(userId: number): Promise<SaleWithItems[]>;
 
@@ -382,12 +382,16 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateSaleCourier(id: number, userId: number, consignmentId: string, courierStatus: string): Promise<SaleWithItems | null> {
-    await db.update(sales).set({
+  async updateSaleCourier(id: number, userId: number, consignmentId: string, courierStatus: string, trackingCode?: string): Promise<SaleWithItems | null> {
+    const updateData: any = {
       consignmentId,
       courierStatus,
       isSentToCourier: true,
-    }).where(and(eq(sales.id, id), eq(sales.userId, userId)));
+    };
+    if (trackingCode !== undefined) {
+      updateData.trackingCode = trackingCode;
+    }
+    await db.update(sales).set(updateData).where(and(eq(sales.id, id), eq(sales.userId, userId)));
     const allSales = await db.select().from(sales).where(and(eq(sales.id, id), eq(sales.userId, userId)));
     if (allSales.length === 0) return null;
     const items = await db.select().from(saleItems).where(eq(saleItems.saleId, id));

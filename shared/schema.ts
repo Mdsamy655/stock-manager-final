@@ -53,6 +53,7 @@ export const sales = pgTable("sales", {
   deliveryCharge: real("delivery_charge").notNull().default(0),
   courierStatus: text("courier_status"),
   consignmentId: text("consignment_id"),
+  trackingCode: text("tracking_code"),
   isSentToCourier: boolean("is_sent_to_courier").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });

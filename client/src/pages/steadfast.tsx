@@ -287,8 +287,8 @@ export default function Steadfast() {
   const isLoading = salesLoading || courierLoading;
   const isConfigured = config && config.apiKey && config.secretKey;
 
-  const handleTrack = (consignmentId: string) => {
-    const trackUrl = `https://steadfast.com.bd/t/${consignmentId}`;
+  const handleTrack = (trackingCode: string) => {
+    const trackUrl = `https://steadfast.com.bd/t/${trackingCode}`;
     window.open(trackUrl, "_blank", "noopener,noreferrer");
   };
 
@@ -625,11 +625,11 @@ export default function Steadfast() {
                           <RefreshCw className={`h-4 w-4 mr-1 ${checkStatusMutation.isPending ? "animate-spin" : ""}`} />
                           Status
                         </Button>
-                        {sale.consignmentId && (
+                        {sale.trackingCode && (
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleTrack(sale.consignmentId!)}
+                            onClick={() => handleTrack(sale.trackingCode!)}
                             data-testid={`button-track-${sale.id}`}
                           >
                             <ExternalLink className="h-4 w-4 mr-1" />
