@@ -19,8 +19,16 @@ function formatTaka(amount: number): string {
 
 function formatLabelDate(date: string | Date | null): string {
   if (!date)
-    return new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-  return new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    return new Date().toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  return new Date(date).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 const BULK_PRINT_STYLES = `
@@ -69,54 +77,65 @@ const BULK_PRINT_STYLES = `
   .tracking-label { font-size: 4px; text-transform: uppercase; color: #555; letter-spacing: 0.8px; margin-bottom: 0.5px; font-weight: 700; }
   .tracking-value { font-size: 13px; font-weight: 900; letter-spacing: 1.5px; color: #000; line-height: 1.1; }
   .details-row {
-    display: flex;
-    border-bottom: 1px solid #ddd;
-    flex-shrink: 0;
-  }
+  display: flex;
+  border-bottom: 1px solid #ddd;
+  flex-shrink: 0;
+  margin-top: 6px;
+}
   .detail-section {
     flex: 1;
     padding: 2.5px 4px;
     overflow: hidden;
   }
   .detail-section + .detail-section { border-left: 1px solid #ddd; }
-  .detail-title { font-size: 4px; font-weight: 800; text-transform: uppercase; color: #888; letter-spacing: 0.5px; margin-bottom: 1px; }
-  .detail-name { font-size: 8px; font-weight: 900; line-height: 1.2; color: #000; }
-  .detail-phone { font-size: 7px; color: #000; line-height: 1.2; margin-top: 0.5px; font-weight: 800; }
+  .detail-title { font-size: 9px; font-weight: 900; text-transform: uppercase; color: #555; letter-spacing: 1px; margin-bottom: 2px; }
+  .detail-name { font-size: 12px; font-weight: 900; line-height: 1.3; color: #000; }
+  .detail-phone { font-size: 10px; color: #000; line-height: 1.3; margin-top: 1px; font-weight: 800; }
   .detail-address {
-    font-size: 7.5px; color: #111; line-height: 1.2; margin-top: 0.5px; font-weight: 800;
-    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
-  }
+  font-size: 10px;
+  color: #111;
+  line-height: 1.3;
+  margin-top: 1px;
+  font-weight: 800;
+}
   .cod-weight-line {
     text-align: center;
     padding: 2px 4px;
     border-bottom: 1px solid #ddd;
     background: #fff5f5;
     flex-shrink: 0;
-    font-size: 7.5px;
+    font-size: 11px;
     font-weight: 900;
     color: #111;
   }
   .cod-weight-line .cod-val { color: #dc2626; }
   .cod-weight-line .sep { margin: 0 3px; color: #ccc; }
   .codes-section {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 2px 4px;
-    background: #fafafa;
-    flex: 1;
-    min-height: 0;
-    gap: 2px;
-  }
-  .qr-box { flex-shrink: 0; }
-  .qr-box svg { width: 52px; height: 52px; }
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 2px 4px;
+  background: #fafafa;
+  flex: 1;
+  min-height: 0;
+  gap: 6px;
+}
+  .qr-box { 
+  flex-shrink: 0;
+  margin-top: 30px;
+}
+  .qr-box svg { width: 85px; height: 85px; }
   .barcode-box { width: 90%; text-align: center; overflow: hidden; }
-  .barcode-box svg { max-width: 100%; height: 28px; }
+  .barcode-box svg { 
+  max-width: 100%;
+  height: 32px;
+  margin-top: 6px;
+}
   .label-footer {
     text-align: center;
     padding: 1.5px 4px;
-    font-size: 5px;
+    font-size: 8px;
     font-weight: 800;
     color: #444;
     background: #e8e8e8;
@@ -143,7 +162,9 @@ function buildSingleLabelHtml(
   const weight = sale.totalWeight ?? 0;
 
   const qrSvg = sale.consignmentId
-    ? renderToStaticMarkup(<QRCodeSVG value={sale.consignmentId} size={52} level="M" />)
+    ? renderToStaticMarkup(
+        <QRCodeSVG value={sale.consignmentId} size={52} level="M" />,
+      )
     : "";
 
   const barcodeSvg = sale.consignmentId
@@ -161,14 +182,18 @@ function buildSingleLabelHtml(
         <div class="tracking-value">${escapeHtml(trackingNumber)}</div>
       </div>
       <div class="details-row">
-        ${hasSender ? `
+        ${
+          hasSender
+            ? `
           <div class="detail-section">
             <div class="detail-title">From</div>
             ${companyName ? `<div class="detail-name">${escapeHtml(companyName)}</div>` : ""}
             ${companyPhone ? `<div class="detail-phone">${escapeHtml(companyPhone)}</div>` : ""}
             ${companyAddress ? `<div class="detail-address">${escapeHtml(companyAddress)}</div>` : ""}
           </div>
-        ` : ""}
+        `
+            : ""
+        }
         <div class="detail-section">
           <div class="detail-title">To</div>
           <div class="detail-name">${escapeHtml(sale.customerName || "N/A")}</div>
@@ -181,13 +206,17 @@ function buildSingleLabelHtml(
         <span class="sep">|</span>
         Weight: ${weight > 0 ? `${weight.toFixed(2)} KG` : "—"}
       </div>
-      ${sale.consignmentId ? `
+      ${
+        sale.consignmentId
+          ? `
         <div class="codes-section">
           <div class="qr-box">${qrSvg}</div>
           <div class="barcode-box">${barcodeSvg}</div>
         </div>
-      ` : ""}
-      <div class="label-footer">Powered by CPSBD Business (FB Page)</div>
+      `
+          : ""
+      }
+      <div class="label-footer">Powered by CPS&S (Officil FB Page)</div>
     </div>
   `;
 }
@@ -197,7 +226,10 @@ interface BulkLabelPrintProps {
   onClose: () => void;
 }
 
-export default function BulkLabelPrint({ sales, onClose }: BulkLabelPrintProps) {
+export default function BulkLabelPrint({
+  sales,
+  onClose,
+}: BulkLabelPrintProps) {
   const triggered = useRef(false);
 
   const companyName = localStorage.getItem("label_company_name") || "";
@@ -212,7 +244,9 @@ export default function BulkLabelPrint({ sales, onClose }: BulkLabelPrintProps) 
     for (let i = 0; i < sales.length; i += 9) {
       const chunk = sales.slice(i, i + 9);
       const labelsHtml = chunk
-        .map((s) => buildSingleLabelHtml(s, companyName, companyPhone, companyAddress))
+        .map((s) =>
+          buildSingleLabelHtml(s, companyName, companyPhone, companyAddress),
+        )
         .join("");
       pages.push(`<div class="page">${labelsHtml}</div>`);
     }
