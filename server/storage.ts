@@ -99,6 +99,7 @@ export interface IStorage {
 
   getPurchases(userId: number): Promise<Purchase[]>;
   createPurchase(userId: number, purchase: InsertPurchase): Promise<Purchase>;
+  createPurchaseRecord(userId: number, purchase: InsertPurchase): Promise<Purchase>;
   deletePurchase(id: number, userId: number): Promise<boolean>;
 
   getCustomers(userId: number): Promise<Customer[]>;
@@ -113,6 +114,7 @@ export interface IStorage {
 
   getInvestors(userId: number): Promise<Investor[]>;
   createInvestor(userId: number, investor: InsertInvestor): Promise<Investor>;
+  withdrawFromInvestor(id: number, userId: number, amount: number): Promise<Investor>;
   deleteInvestor(id: number, userId: number): Promise<boolean>;
 
   getSalesByCustomer(customerId: number, userId: number): Promise<SaleWithItems[]>;
@@ -581,6 +583,11 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async createPurchaseRecord(userId: number, purchase: InsertPurchase): Promise<Purchase> {
+    const [created] = await db.insert(purchases).values({ ...purchase, userId }).returning();
+    return created;
+  }
+
   async deletePurchase(id: number, userId: number): Promise<boolean> {
     const client = await pool.connect();
     try {
@@ -717,6 +724,18 @@ export class DatabaseStorage implements IStorage {
   async createInvestor(userId: number, investor: InsertInvestor): Promise<Investor> {
     const [created] = await db.insert(investors).values({ ...investor, userId }).returning();
     return created;
+  }
+
+  async withdrawFromInvestor(id: number, userId: number, amount: number): Promise<Investor> {
+    const [investor] = await db.select().from(investors).where(and(eq(investors.id, id), eq(investors.userId, userId)));
+    if (!investor) throw new Error("Investor not found");
+    if (amount <= 0) throw new Error("Withdrawal amount must be positive");
+    if (amount > investor.investedAmount) throw new Error("Withdrawal amount exceeds invested balance");
+    const [updated] = await db.update(investors)
+      .set({ investedAmount: investor.investedAmount - amount })
+      .where(and(eq(investors.id, id), eq(investors.userId, userId)))
+      .returning();
+    return updated;
   }
 
   async deleteInvestor(id: number, userId: number): Promise<boolean> {

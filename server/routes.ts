@@ -168,7 +168,26 @@ export async function registerRoutes(
       if (!parsed.productCode || parsed.productCode.trim() === "") {
         return res.status(400).json({ message: "Product code is required" });
       }
-      const product = await storage.createProduct(req.user!.id, parsed);
+      const userId = req.user!.id;
+      const product = await storage.createProduct(userId, parsed);
+
+      if (product.stock > 0 && product.costPrice > 0) {
+        const totalCost = product.stock * product.costPrice;
+        await storage.createPurchaseRecord(userId, {
+          productId: product.id,
+          productName: product.name,
+          quantity: product.stock,
+          unitCost: product.costPrice,
+          totalCost,
+        });
+        await storage.createTransactionHistory(userId, {
+          actionType: "Purchase",
+          reference: "Product Stock",
+          description: `${product.name} initial stock added`,
+          amount: totalCost,
+        });
+      }
+
       res.status(201).json(product);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -618,6 +637,26 @@ export async function registerRoutes(
       });
 
       res.status(201).json(investor);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/investors/:id/withdraw", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { amount } = z.object({ amount: z.coerce.number().positive() }).parse(req.body);
+      const userId = req.user!.id;
+      const investor = await storage.withdrawFromInvestor(id, userId, amount);
+
+      await storage.createTransactionHistory(userId, {
+        actionType: "Withdrawal",
+        reference: "Investor",
+        description: `${investor.name} withdrawal`,
+        amount,
+      });
+
+      res.json(investor);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }

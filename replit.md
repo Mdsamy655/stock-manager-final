@@ -15,10 +15,10 @@ A professional inventory management system built with Node.js, Express, React, a
 - **Products:** Add/delete products with cost price, sale price, stock tracking, weight per unit (KG), and manual stock adjustment (Add/Reduce/Set Exact with history logging)
 - **Sales:** Invoice-style multi-product sales with automatic stock reduction per item, editable sale price per line item, optional 1% COD fee toggle, line weight display (quantity × weightPerUnit), total weight calculation, optional customer assignment, partial payment with due tracking
 - **Expenses:** Three sections: Courier Expenses (auto-created, category "Delivery"), Other Expenses (manual business costs), Permanent Assets (long-term assets). Dashboard only shows "Other Expenses".
-- **Purchases:** Record stock purchases with automatic stock increase
+- **Purchases:** Record stock purchases with automatic stock increase. Auto-created when a product is added with initial stock.
 - **Customers:** Add/view customers with due amount tracking
 - **Payments:** Record/delete customer payments that adjust their due amounts
-- **Investors:** Track investor contributions with cash/product types
+- **Investors:** Track investor contributions with cash/product types, withdraw from investor balance
 - **Steadfast Courier:** Dynamic API config stored in DB; send sales to Steadfast courier with editable COD amount per order; track status; fixed 110 BDT courier charge on send; profit/cash only counted when delivered; stock restored on cancel; cancelled sales zero out payment/due
 - **Customer Details:** View individual customer transaction history
 - **Invoice System:** Generate printable/downloadable PDF invoices with COD fee and weight display
@@ -61,7 +61,7 @@ A professional inventory management system built with Node.js, Express, React, a
 - `GET/POST /api/purchases`
 - `GET/POST /api/customers`, `GET/DELETE /api/customers/:id`
 - `GET/POST /api/payments`, `DELETE /api/payments/:id`
-- `GET/POST /api/investors`, `DELETE /api/investors/:id`
+- `GET/POST /api/investors`, `POST /api/investors/:id/withdraw`, `DELETE /api/investors/:id`
 - `GET/POST /api/steadfast-config`
 - `GET /api/courier-sales`
 - `POST /api/steadfast/send/:id`, `DELETE /api/steadfast/order/:id`, `POST /api/steadfast/status/:id`

@@ -51,7 +51,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, Landmark, Trash2 } from "lucide-react";
+import { Plus, Landmark, Trash2, ArrowDownToLine } from "lucide-react";
 import type { Investor, Product } from "@shared/schema";
 
 const investorFormSchema = z.object({
@@ -80,6 +80,9 @@ function formatDate(date: string | Date | null): string {
 
 export default function Investors() {
   const [open, setOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawInvestor, setWithdrawInvestor] = useState<Investor | null>(null);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
   const { toast } = useToast();
 
   const { data: investorsList, isLoading } = useQuery<Investor[]>({
@@ -129,6 +132,24 @@ export default function Investors() {
       queryClient.invalidateQueries({ queryKey: ["/api/investors"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       toast({ title: "Investment deleted" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const withdrawMutation = useMutation({
+    mutationFn: async ({ id, amount }: { id: number; amount: number }) => {
+      await apiRequest("POST", `/api/investors/${id}/withdraw`, { amount });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/investors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/transaction-history"] });
+      setWithdrawOpen(false);
+      setWithdrawInvestor(null);
+      setWithdrawAmount("");
+      toast({ title: "Withdrawal recorded successfully" });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -291,30 +312,46 @@ export default function Investors() {
                           {formatDate(investor.createdAt)}
                         </TableCell>
                         <TableCell className="text-right">
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="text-destructive" disabled={deleteMutation.isPending} data-testid={`button-delete-investor-${investor.id}`}>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Investment</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete this investment of {formatTaka(investor.investedAmount)} by {investor.name}?
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => deleteMutation.mutate(investor.id)}
-                                  className="bg-destructive text-destructive-foreground"
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-orange-600"
+                              disabled={withdrawMutation.isPending || investor.investedAmount <= 0}
+                              onClick={() => {
+                                setWithdrawInvestor(investor);
+                                setWithdrawAmount("");
+                                setWithdrawOpen(true);
+                              }}
+                              data-testid={`button-withdraw-investor-${investor.id}`}
+                            >
+                              <ArrowDownToLine className="h-4 w-4" />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="text-destructive" disabled={deleteMutation.isPending} data-testid={`button-delete-investor-${investor.id}`}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Investment</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete this investment of {formatTaka(investor.investedAmount)} by {investor.name}?
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => deleteMutation.mutate(investor.id)}
+                                    className="bg-destructive text-destructive-foreground"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -331,6 +368,49 @@ export default function Investors() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={withdrawOpen} onOpenChange={(open) => {
+        setWithdrawOpen(open);
+        if (!open) {
+          setWithdrawInvestor(null);
+          setWithdrawAmount("");
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Withdraw from {withdrawInvestor?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Current balance: {formatTaka(withdrawInvestor?.investedAmount ?? 0)}
+            </p>
+            <div>
+              <label className="text-sm font-medium">Withdrawal Amount (৳)</label>
+              <Input
+                type="number"
+                min="1"
+                max={withdrawInvestor?.investedAmount ?? 0}
+                placeholder="Enter amount"
+                value={withdrawAmount}
+                onChange={(e) => setWithdrawAmount(e.target.value)}
+                data-testid="input-withdraw-amount"
+              />
+            </div>
+            <Button
+              className="w-full"
+              disabled={withdrawMutation.isPending || !withdrawAmount || Number(withdrawAmount) <= 0}
+              onClick={() => {
+                if (withdrawInvestor && Number(withdrawAmount) > 0) {
+                  withdrawMutation.mutate({ id: withdrawInvestor.id, amount: Number(withdrawAmount) });
+                }
+              }}
+              data-testid="button-submit-withdraw"
+            >
+              {withdrawMutation.isPending ? "Processing..." : "Confirm Withdrawal"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
