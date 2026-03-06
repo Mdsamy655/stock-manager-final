@@ -71,21 +71,20 @@ const BULK_PRINT_STYLES = `
   .details-row {
     display: flex;
     border-bottom: 1px solid #ddd;
-    flex: 1;
-    min-height: 0;
+    flex-shrink: 0;
   }
   .detail-section {
     flex: 1;
-    padding: 2px 5px;
+    padding: 3px 5px;
     overflow: hidden;
   }
   .detail-section + .detail-section { border-left: 1px solid #ddd; }
   .detail-title { font-size: 4.5px; font-weight: 700; text-transform: uppercase; color: #999; letter-spacing: 0.6px; margin-bottom: 1px; }
-  .detail-name { font-size: 7.5px; font-weight: 700; line-height: 1.2; color: #111; }
-  .detail-phone { font-size: 7px; color: #222; line-height: 1.2; margin-top: 1px; font-weight: 600; }
+  .detail-name { font-size: 8.5px; font-weight: 800; line-height: 1.2; color: #000; }
+  .detail-phone { font-size: 7.5px; color: #111; line-height: 1.2; margin-top: 1px; font-weight: 700; }
   .detail-address {
-    font-size: 6px; color: #444; line-height: 1.2; margin-top: 1px; font-weight: 500;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    font-size: 7px; color: #222; line-height: 1.25; margin-top: 1px; font-weight: 700;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
   }
   .cod-weight-line {
     text-align: center;
@@ -103,15 +102,16 @@ const BULK_PRINT_STYLES = `
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 5px;
-    padding: 2px 5px;
+    gap: 6px;
+    padding: 3px 5px;
     background: #fafafa;
-    flex-shrink: 0;
+    flex: 1;
+    min-height: 0;
   }
   .qr-box { flex-shrink: 0; }
-  .qr-box svg { width: 44px; height: 44px; }
-  .barcode-box { flex: 1; text-align: center; overflow: hidden; }
-  .barcode-box svg { max-width: 100%; height: 30px; }
+  .qr-box svg { width: 54px; height: 54px; }
+  .barcode-box { flex: 1; text-align: center; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+  .barcode-box svg { max-width: 100%; height: 38px; }
   .label-footer {
     text-align: center;
     padding: 2px 5px;
@@ -142,11 +142,11 @@ function buildSingleLabelHtml(
   const weight = sale.totalWeight ?? 0;
 
   const qrSvg = sale.consignmentId
-    ? renderToStaticMarkup(<QRCodeSVG value={sale.consignmentId} size={44} level="M" />)
+    ? renderToStaticMarkup(<QRCodeSVG value={sale.consignmentId} size={54} level="M" />)
     : "";
 
   const barcodeSvg = sale.consignmentId
-    ? generateBarcodeSvgString(sale.consignmentId, 30, 1.5)
+    ? generateBarcodeSvgString(sale.consignmentId, 38, 1.8)
     : "";
 
   return `
