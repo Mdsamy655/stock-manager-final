@@ -625,11 +625,11 @@ export default function Steadfast() {
                           <RefreshCw className={`h-4 w-4 mr-1 ${checkStatusMutation.isPending ? "animate-spin" : ""}`} />
                           Status
                         </Button>
-                        {sale.trackingCode && (
+                        {(sale.trackingCode || sale.consignmentId) && (
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleTrack(sale.trackingCode!)}
+                            onClick={() => handleTrack(sale.trackingCode || sale.consignmentId!)}
                             data-testid={`button-track-${sale.id}`}
                           >
                             <ExternalLink className="h-4 w-4 mr-1" />
