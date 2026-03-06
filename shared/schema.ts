@@ -140,16 +140,16 @@ export const stockHistory = pgTable("stock_history", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const transactions = pgTable("transactions", {
+export const transactionHistory = pgTable("transaction_history", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   date: timestamp("date").defaultNow(),
-  category: text("category").notNull(),
-  source: text("source").notNull(),
+  actionType: text("action_type").notNull(),
+  reference: text("reference").notNull(),
   description: text("description").notNull(),
-  debit: real("debit").notNull().default(0),
-  credit: real("credit").notNull().default(0),
-  profit: real("profit").notNull().default(0),
+  moneyIn: real("money_in").notNull().default(0),
+  moneyOut: real("money_out").notNull().default(0),
+  balance: real("balance").notNull().default(0),
 });
 
 export const steadfastConfig = pgTable("steadfast_config", {
@@ -208,10 +208,11 @@ export const insertInvestorSchema = createInsertSchema(investors).omit({
   createdAt: true,
   userId: true,
 });
-export const insertTransactionSchema = createInsertSchema(transactions).omit({
+export const insertTransactionHistorySchema = createInsertSchema(transactionHistory).omit({
   id: true,
   date: true,
   userId: true,
+  balance: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -236,8 +237,8 @@ export type InsertInvestor = z.infer<typeof insertInvestorSchema>;
 export type Investor = typeof investors.$inferSelect;
 export type StockHistory = typeof stockHistory.$inferSelect;
 export type SteadfastConfig = typeof steadfastConfig.$inferSelect;
-export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
-export type Transaction = typeof transactions.$inferSelect;
+export type InsertTransactionHistory = z.infer<typeof insertTransactionHistorySchema>;
+export type TransactionHistory = typeof transactionHistory.$inferSelect;
 
 export interface SaleWithItems extends Sale {
   items: SaleItem[];

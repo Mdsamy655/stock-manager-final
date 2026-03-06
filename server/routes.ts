@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { sales, expenses, products, transactions, insertProductSchema, insertExpenseSchema, insertSupplierSchema, insertPurchaseSchema, insertCustomerSchema, insertInvestorSchema, type SaleWithItems } from "@shared/schema";
+import { sales, expenses, products, insertProductSchema, insertExpenseSchema, insertSupplierSchema, insertPurchaseSchema, insertCustomerSchema, insertInvestorSchema, type SaleWithItems } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { createSteadfastOrder, checkSteadfastStatus } from "./steadfast";
@@ -331,15 +331,12 @@ export async function registerRoutes(
       });
 
       const itemNames = resolvedItems.map(i => `${i.productName} x${i.quantity}`).join(", ");
-      const totalCost = resolvedItems.reduce((sum, i) => sum + i.costPrice * i.quantity, 0);
-      const saleProfit = subtotal - totalCost;
-      await storage.createTransaction(userId, {
-        category: "Sale",
-        source: `Sale #${sale.id}`,
+      await storage.createTransactionHistory(userId, {
+        actionType: "Sale",
+        reference: `Sale #${sale.id}`,
         description: `${itemNames}${resolvedCustomerName ? ` - ${resolvedCustomerName}` : ""}`,
-        debit: 0,
-        credit: totalAmount,
-        profit: saleProfit,
+        moneyIn: totalAmount,
+        moneyOut: 0,
       });
 
       res.status(201).json(sale);
@@ -389,13 +386,12 @@ export async function registerRoutes(
       const expense = await storage.createExpense(req.user!.id, parsed);
 
       const isDelivery = parsed.category === "Delivery";
-      await storage.createTransaction(req.user!.id, {
-        category: isDelivery ? "Courier Expense" : "Expense",
-        source: `Expense #${expense.id}`,
+      await storage.createTransactionHistory(req.user!.id, {
+        actionType: isDelivery ? "Courier Expense" : "Other Expense",
+        reference: `Expense #${expense.id}`,
         description: parsed.description,
-        debit: parsed.amount,
-        credit: 0,
-        profit: 0,
+        moneyIn: 0,
+        moneyOut: parsed.amount,
       });
 
       res.status(201).json(expense);
@@ -478,13 +474,12 @@ export async function registerRoutes(
         totalCost: product.costPrice * quantity,
       });
 
-      await storage.createTransaction(userId, {
-        category: "Purchase",
-        source: `Purchase #${purchase.id}`,
+      await storage.createTransactionHistory(userId, {
+        actionType: "Purchase",
+        reference: `Purchase #${purchase.id}`,
         description: `${product.name} x${quantity}${supplierName ? ` from ${supplierName}` : ""}`,
-        debit: product.costPrice * quantity,
-        credit: 0,
-        profit: 0,
+        moneyIn: 0,
+        moneyOut: product.costPrice * quantity,
       });
 
       res.status(201).json(purchase);
@@ -579,13 +574,12 @@ export async function registerRoutes(
 
       const payment = await storage.createPayment(req.user!.id, customerId, amount);
 
-      await storage.createTransaction(req.user!.id, {
-        category: "Payment Received",
-        source: `Payment #${payment.id}`,
+      await storage.createTransactionHistory(req.user!.id, {
+        actionType: "Payment Received",
+        reference: `Payment #${payment.id}`,
         description: `Payment from ${payment.customerName}`,
-        debit: 0,
-        credit: amount,
-        profit: 0,
+        moneyIn: amount,
+        moneyOut: 0,
       });
 
       res.status(201).json(payment);
@@ -620,13 +614,12 @@ export async function registerRoutes(
       const investor = await storage.createInvestor(req.user!.id, parsed);
 
       const isWithdrawal = parsed.investedAmount < 0;
-      await storage.createTransaction(req.user!.id, {
-        category: isWithdrawal ? "Withdrawal" : "Investment",
-        source: `Investor #${investor.id}`,
+      await storage.createTransactionHistory(req.user!.id, {
+        actionType: isWithdrawal ? "Withdrawal" : "Investment",
+        reference: `Investor #${investor.id}`,
         description: `${parsed.name} - ${parsed.investmentType}`,
-        debit: isWithdrawal ? Math.abs(parsed.investedAmount) : 0,
-        credit: isWithdrawal ? 0 : parsed.investedAmount,
-        profit: 0,
+        moneyIn: isWithdrawal ? 0 : parsed.investedAmount,
+        moneyOut: isWithdrawal ? Math.abs(parsed.investedAmount) : 0,
       });
 
       res.status(201).json(investor);
@@ -646,10 +639,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/transactions", async (req, res) => {
+  app.get("/api/transaction-history", async (req, res) => {
     try {
-      const transactionsList = await storage.getTransactions(req.user!.id);
-      res.json(transactionsList);
+      const history = await storage.getTransactionHistory(req.user!.id);
+      res.json(history);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -724,13 +717,12 @@ export async function registerRoutes(
             category: "Delivery",
           });
 
-          await storage.createTransaction(userId, {
-            category: "Courier Expense",
-            source: `Expense #${courierExpense.id}`,
+          await storage.createTransactionHistory(userId, {
+            actionType: "Courier Expense",
+            reference: `Expense #${courierExpense.id}`,
             description: `Courier charge - Order #${id} (${sale.customerName || "Unknown"})`,
-            debit: courierChargeAmount,
-            credit: 0,
-            profit: 0,
+            moneyIn: 0,
+            moneyOut: courierChargeAmount,
           });
         }
       }
@@ -809,13 +801,12 @@ export async function registerRoutes(
             category: "Delivery",
           });
 
-          await storage.createTransaction(userId, {
-            category: "Return Charge",
-            source: `Expense #${returnExpense.id}`,
+          await storage.createTransactionHistory(userId, {
+            actionType: "Return Charge",
+            reference: `Expense #${returnExpense.id}`,
             description: `Return delivery charge - Order #${saleId} (${sale.customerName || "Unknown"})`,
-            debit: deliveryChargeAmount,
-            credit: 0,
-            profit: 0,
+            moneyIn: 0,
+            moneyOut: deliveryChargeAmount,
           });
         }
       }

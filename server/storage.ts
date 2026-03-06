@@ -12,7 +12,7 @@ import {
   payments,
   investors,
   steadfastConfig,
-  transactions,
+  transactionHistory,
   type User,
   type InsertUser,
   type Product,
@@ -37,8 +37,8 @@ import {
   stockHistory,
   type StockHistory,
   type SteadfastConfig,
-  type Transaction,
-  type InsertTransaction,
+  type TransactionHistory,
+  type InsertTransactionHistory,
 } from "@shared/schema";
 
 interface CreateSaleInput {
@@ -119,8 +119,8 @@ export interface IStorage {
 
   getDashboardStats(userId: number): Promise<DashboardStats>;
 
-  getTransactions(userId: number): Promise<Transaction[]>;
-  createTransaction(userId: number, transaction: InsertTransaction): Promise<Transaction>;
+  getTransactionHistory(userId: number): Promise<TransactionHistory[]>;
+  createTransactionHistory(userId: number, entry: InsertTransactionHistory): Promise<TransactionHistory>;
 }
 
 async function attachItemsToSales(salesRows: Sale[]): Promise<SaleWithItems[]> {
@@ -729,12 +729,19 @@ export class DatabaseStorage implements IStorage {
     return attachItemsToSales(salesRows);
   }
 
-  async getTransactions(userId: number): Promise<Transaction[]> {
-    return db.select().from(transactions).where(eq(transactions.userId, userId)).orderBy(desc(transactions.date));
+  async getTransactionHistory(userId: number): Promise<TransactionHistory[]> {
+    return db.select().from(transactionHistory).where(eq(transactionHistory.userId, userId)).orderBy(desc(transactionHistory.date));
   }
 
-  async createTransaction(userId: number, transaction: InsertTransaction): Promise<Transaction> {
-    const [created] = await db.insert(transactions).values({ ...transaction, userId }).returning();
+  async createTransactionHistory(userId: number, entry: InsertTransactionHistory): Promise<TransactionHistory> {
+    const lastEntries = await db.select()
+      .from(transactionHistory)
+      .where(eq(transactionHistory.userId, userId))
+      .orderBy(desc(transactionHistory.id))
+      .limit(1);
+    const lastBalance = lastEntries.length > 0 ? lastEntries[0].balance : 0;
+    const newBalance = lastBalance + (entry.moneyIn ?? 0) - (entry.moneyOut ?? 0);
+    const [created] = await db.insert(transactionHistory).values({ ...entry, userId, balance: newBalance }).returning();
     return created;
   }
 
