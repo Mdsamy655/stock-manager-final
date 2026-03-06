@@ -216,7 +216,7 @@ function buildSingleLabelHtml(
       `
           : ""
       }
-      <div class="label-footer">Powered by CPS&S (Officil FB Page)</div>
+      <div class="label-footer">Powered by CPS&S (Official FB Page)</div>
     </div>
   `;
 }

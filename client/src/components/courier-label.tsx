@@ -664,7 +664,7 @@ export default function CourierLabel({
                   borderTop: "1px solid #ddd",
                 }}
               >
-                Powered by CPSBD Business (FB Page)
+                Powered by CPS&S (Official FB Page)
               </div>
             </div>
           </div>
