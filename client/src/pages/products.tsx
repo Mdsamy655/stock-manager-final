@@ -363,6 +363,7 @@ export default function Products() {
                   <TableRow>
                     <TableHead>Code</TableHead>
                     <TableHead>Product Name</TableHead>
+                    <TableHead className="text-right">Total Product Price</TableHead>
                     <TableHead className="text-right">Cost Price</TableHead>
                     <TableHead className="text-right">Sale Price</TableHead>
                     <TableHead className="text-right">Profit/Unit</TableHead>
@@ -378,6 +379,9 @@ export default function Products() {
                         {product.productCode || "-"}
                       </TableCell>
                       <TableCell className="font-medium">{product.name}</TableCell>
+                      <TableCell className="text-right" data-testid={`text-total-price-${product.id}`}>
+                        {formatTaka(product.costPrice * product.stock)}
+                      </TableCell>
                       <TableCell className="text-right">{formatTaka(product.costPrice)}</TableCell>
                       <TableCell className="text-right">{formatTaka(product.salePrice)}</TableCell>
                       <TableCell className="text-right text-emerald-600 dark:text-emerald-400">
