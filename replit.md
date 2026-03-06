@@ -22,7 +22,7 @@ A professional inventory management system built with Node.js, Express, React, a
 - **Steadfast Courier:** Dynamic API config stored in DB; send sales to Steadfast courier with editable COD amount per order; track status; fixed 110 BDT courier charge on send; profit/cash only counted when delivered; stock restored on cancel; cancelled sales zero out payment/due
 - **Customer Details:** View individual customer transaction history
 - **Invoice System:** Generate printable/downloadable PDF invoices with COD fee and weight display
-- **Database (Activity Log):** Automatic activity recording for Sales, Purchases, Other Expenses, Courier Expenses, Return Charges, Investments, Withdrawals, and Payment Received. Single `amount` field per record. Searchable/filterable table with color-coded action type badges.
+- **Database (Activity Log):** Automatic activity recording for Sale, Purchase, Expense, Courier Expense, Return Charge, Investment, Withdrawal, and Payment Received. Single `amount` field per record. Searchable/filterable table with color-coded action type badges. No balance or totals — just a flat activity history.
 
 ## Data Model
 - `users` - name, email (unique), password (bcrypt hash), googleId (nullable)

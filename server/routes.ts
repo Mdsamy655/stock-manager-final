@@ -386,8 +386,8 @@ export async function registerRoutes(
 
       const isDelivery = parsed.category === "Delivery";
       await storage.createTransactionHistory(req.user!.id, {
-        actionType: isDelivery ? "Courier Expense" : "Other Expense",
-        reference: `Expense #${expense.id}`,
+        actionType: isDelivery ? "Courier Expense" : "Expense",
+        reference: isDelivery ? "Courier" : `Expense #${expense.id}`,
         description: parsed.description,
         amount: parsed.amount,
       });
@@ -573,8 +573,8 @@ export async function registerRoutes(
 
       await storage.createTransactionHistory(req.user!.id, {
         actionType: "Payment Received",
-        reference: `Payment #${payment.id}`,
-        description: `Payment from ${payment.customerName}`,
+        reference: "Payment",
+        description: payment.customerName,
         amount: amount,
       });
 
@@ -612,8 +612,8 @@ export async function registerRoutes(
       const isWithdrawal = parsed.investedAmount < 0;
       await storage.createTransactionHistory(req.user!.id, {
         actionType: isWithdrawal ? "Withdrawal" : "Investment",
-        reference: `Investor #${investor.id}`,
-        description: `${parsed.name} - ${parsed.investmentType}`,
+        reference: isWithdrawal ? "Owner" : "Investor",
+        description: isWithdrawal ? "owner withdrawal" : parsed.name,
         amount: Math.abs(parsed.investedAmount),
       });
 
@@ -714,8 +714,8 @@ export async function registerRoutes(
 
           await storage.createTransactionHistory(userId, {
             actionType: "Courier Expense",
-            reference: `Expense #${courierExpense.id}`,
-            description: `Courier charge - Order #${id} (${sale.customerName || "Unknown"})`,
+            reference: "Courier",
+            description: `delivery charge + packing charge`,
             amount: courierChargeAmount,
           });
         }
@@ -797,8 +797,8 @@ export async function registerRoutes(
 
           await storage.createTransactionHistory(userId, {
             actionType: "Return Charge",
-            reference: `Expense #${returnExpense.id}`,
-            description: `Return delivery charge - Order #${saleId} (${sale.customerName || "Unknown"})`,
+            reference: "Return",
+            description: `courier return cost`,
             amount: deliveryChargeAmount,
           });
         }

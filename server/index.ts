@@ -155,8 +155,8 @@ process.on("unhandledRejection", (reason) => {
 
                     await storage.createTransactionHistory(config.userId, {
                       actionType: "Return Charge",
-                      reference: `Expense #${returnExpense.id}`,
-                      description: `Return delivery charge - Order #${order.id} (${order.customerName || "Unknown"})`,
+                      reference: "Return",
+                      description: `courier return cost`,
                       amount: deliveryChargeAmount,
                     });
                   }

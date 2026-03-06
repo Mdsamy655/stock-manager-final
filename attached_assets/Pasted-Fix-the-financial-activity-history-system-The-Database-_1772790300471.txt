@@ -1,0 +1,92 @@
+Fix the financial activity history system.
+
+The Database page must work as a simple activity log.
+
+Every financial action must automatically create a record in the transaction_history table.
+
+Actions that must be recorded:
+- Sale
+- Purchase
+- Expense
+- Investment
+- Payment Received
+- Withdrawal
+- Courier Expense
+- Return Charge
+
+When any of these actions occur, insert a new record into transaction_history with the following fields:
+
+date
+type
+reference
+description
+amount
+
+Example structure:
+
+Date | Type | Reference | Description | Amount
+
+Examples:
+
+Sale → 
+type: Sale
+reference: Sale #ID
+description: product name + customer
+amount: sale total
+
+Expense →
+type: Expense
+reference: Expense #ID
+description: expense description
+amount: expense amount
+
+Investment →
+type: Investment
+reference: Investor
+description: investor name
+amount: investment amount
+
+Purchase →
+type: Purchase
+reference: Purchase #ID
+description: stock purchase
+amount: purchase total
+
+Payment Received →
+type: Payment Received
+reference: Payment
+description: customer name
+amount: payment amount
+
+Withdrawal →
+type: Withdrawal
+reference: Owner
+description: owner withdrawal
+amount: withdrawal amount
+
+Courier Expense →
+type: Courier Expense
+reference: Courier
+description: delivery charge + packing charge
+amount: total courier cost
+
+Return Charge →
+type: Return Charge
+reference: Return
+description: courier return cost
+amount: return charge
+
+Important rules:
+
+1. Do NOT modify dashboard calculations.
+2. Do NOT modify profit logic.
+3. Do NOT modify inventory logic.
+4. Do NOT modify existing database tables except transaction_history usage.
+5. Only ensure every financial action writes a record to transaction_history.
+6. The Database page must display:
+
+Date | Type | Reference | Description | Amount
+
+7. Remove balance calculations or totals from the Database page.
+
+The Database page must only show the history of all financial activities.
