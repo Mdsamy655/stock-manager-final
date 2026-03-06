@@ -35,7 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Truck, Send, RefreshCw, Package, CheckCircle, XCircle, Clock, Settings, Save, Trash2, Printer, ExternalLink, Timer } from "lucide-react";
+import { Truck, Send, RefreshCw, Package, CheckCircle, XCircle, Clock, Settings, Save, Trash2, Printer, Timer } from "lucide-react";
 import type { SaleWithItems } from "@shared/schema";
 import CourierLabel from "@/components/courier-label";
 import BulkLabelPrint from "@/components/bulk-label-print";
@@ -287,10 +287,6 @@ export default function Steadfast() {
   const isLoading = salesLoading || courierLoading;
   const isConfigured = config && config.apiKey && config.secretKey;
 
-  const handleTrack = (trackingCode: string) => {
-    const trackUrl = `https://steadfast.com.bd/t/${trackingCode}`;
-    window.open(trackUrl, "_blank", "noopener,noreferrer");
-  };
 
   return (
     <div className="p-6 space-y-6">
@@ -625,17 +621,6 @@ export default function Steadfast() {
                           <RefreshCw className={`h-4 w-4 mr-1 ${checkStatusMutation.isPending ? "animate-spin" : ""}`} />
                           Status
                         </Button>
-                        {(sale.trackingCode || sale.consignmentId) && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleTrack(sale.trackingCode || sale.consignmentId!)}
-                            data-testid={`button-track-${sale.id}`}
-                          >
-                            <ExternalLink className="h-4 w-4 mr-1" />
-                            Track
-                          </Button>
-                        )}
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button
