@@ -147,9 +147,7 @@ export const transactionHistory = pgTable("transaction_history", {
   actionType: text("action_type").notNull(),
   reference: text("reference").notNull(),
   description: text("description").notNull(),
-  moneyIn: real("money_in").notNull().default(0),
-  moneyOut: real("money_out").notNull().default(0),
-  balance: real("balance").notNull().default(0),
+  amount: real("amount").notNull().default(0),
 });
 
 export const steadfastConfig = pgTable("steadfast_config", {
@@ -212,7 +210,6 @@ export const insertTransactionHistorySchema = createInsertSchema(transactionHist
   id: true,
   date: true,
   userId: true,
-  balance: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;

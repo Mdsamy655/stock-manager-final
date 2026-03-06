@@ -335,8 +335,7 @@ export async function registerRoutes(
         actionType: "Sale",
         reference: `Sale #${sale.id}`,
         description: `${itemNames}${resolvedCustomerName ? ` - ${resolvedCustomerName}` : ""}`,
-        moneyIn: totalAmount,
-        moneyOut: 0,
+        amount: totalAmount,
       });
 
       res.status(201).json(sale);
@@ -390,8 +389,7 @@ export async function registerRoutes(
         actionType: isDelivery ? "Courier Expense" : "Other Expense",
         reference: `Expense #${expense.id}`,
         description: parsed.description,
-        moneyIn: 0,
-        moneyOut: parsed.amount,
+        amount: parsed.amount,
       });
 
       res.status(201).json(expense);
@@ -478,8 +476,7 @@ export async function registerRoutes(
         actionType: "Purchase",
         reference: `Purchase #${purchase.id}`,
         description: `${product.name} x${quantity}${supplierName ? ` from ${supplierName}` : ""}`,
-        moneyIn: 0,
-        moneyOut: product.costPrice * quantity,
+        amount: product.costPrice * quantity,
       });
 
       res.status(201).json(purchase);
@@ -578,8 +575,7 @@ export async function registerRoutes(
         actionType: "Payment Received",
         reference: `Payment #${payment.id}`,
         description: `Payment from ${payment.customerName}`,
-        moneyIn: amount,
-        moneyOut: 0,
+        amount: amount,
       });
 
       res.status(201).json(payment);
@@ -618,8 +614,7 @@ export async function registerRoutes(
         actionType: isWithdrawal ? "Withdrawal" : "Investment",
         reference: `Investor #${investor.id}`,
         description: `${parsed.name} - ${parsed.investmentType}`,
-        moneyIn: isWithdrawal ? 0 : parsed.investedAmount,
-        moneyOut: isWithdrawal ? Math.abs(parsed.investedAmount) : 0,
+        amount: Math.abs(parsed.investedAmount),
       });
 
       res.status(201).json(investor);
@@ -721,8 +716,7 @@ export async function registerRoutes(
             actionType: "Courier Expense",
             reference: `Expense #${courierExpense.id}`,
             description: `Courier charge - Order #${id} (${sale.customerName || "Unknown"})`,
-            moneyIn: 0,
-            moneyOut: courierChargeAmount,
+            amount: courierChargeAmount,
           });
         }
       }
@@ -805,8 +799,7 @@ export async function registerRoutes(
             actionType: "Return Charge",
             reference: `Expense #${returnExpense.id}`,
             description: `Return delivery charge - Order #${saleId} (${sale.customerName || "Unknown"})`,
-            moneyIn: 0,
-            moneyOut: deliveryChargeAmount,
+            amount: deliveryChargeAmount,
           });
         }
       }

@@ -22,7 +22,7 @@ A professional inventory management system built with Node.js, Express, React, a
 - **Steadfast Courier:** Dynamic API config stored in DB; send sales to Steadfast courier with editable COD amount per order; track status; fixed 110 BDT courier charge on send; profit/cash only counted when delivered; stock restored on cancel; cancelled sales zero out payment/due
 - **Customer Details:** View individual customer transaction history
 - **Invoice System:** Generate printable/downloadable PDF invoices with COD fee and weight display
-- **Database (Transaction History):** Automatic transaction history recording from Sales (money in), Purchases (money out), Other Expenses (money out), Courier Expenses (money out), Return Charges (money out), Investments (money in), Withdrawals (money out), and Payment Received (money in). Running balance computed automatically. Searchable/filterable table with action type badges and summary totals.
+- **Database (Activity Log):** Automatic activity recording for Sales, Purchases, Other Expenses, Courier Expenses, Return Charges, Investments, Withdrawals, and Payment Received. Single `amount` field per record. Searchable/filterable table with color-coded action type badges.
 
 ## Data Model
 - `users` - name, email (unique), password (bcrypt hash), googleId (nullable)
@@ -36,7 +36,7 @@ A professional inventory management system built with Node.js, Express, React, a
 - `customers` - userId, name, phone, address, dueAmount
 - `payments` - userId, customerId, customerName, amount
 - `investors` - userId, name, investedAmount, investmentType, productId, isPermanent
-- `transaction_history` - userId, date, actionType, reference, description, moneyIn, moneyOut, balance (Transaction History Ledger)
+- `transaction_history` - userId, date, actionType, reference, description, amount (Activity log for financial actions)
 - `steadfast_config` - userId, apiKey, secretKey, baseUrl, createdAt
 
 ## File Structure
@@ -66,7 +66,7 @@ A professional inventory management system built with Node.js, Express, React, a
 - `GET /api/courier-sales`
 - `POST /api/steadfast/send/:id`, `DELETE /api/steadfast/order/:id`, `POST /api/steadfast/status/:id`
 - `POST /api/steadfast/manual-status/:id` — manual status update (pending, in_review, delivered, cancelled) with financial/stock effects
-- `GET /api/transaction-history` - Transaction history records with running balance
+- `GET /api/transaction-history` - Financial activity records
 
 ## Weight & COD Logic
 - **Weight:** Each product has optional `weightPerUnit` (KG). During sales, line weight = quantity × weightPerUnit. Total weight = sum of all line weights. Stored in `sales.total_weight`.

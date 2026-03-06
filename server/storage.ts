@@ -734,14 +734,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTransactionHistory(userId: number, entry: InsertTransactionHistory): Promise<TransactionHistory> {
-    const lastEntries = await db.select()
-      .from(transactionHistory)
-      .where(eq(transactionHistory.userId, userId))
-      .orderBy(desc(transactionHistory.id))
-      .limit(1);
-    const lastBalance = lastEntries.length > 0 ? lastEntries[0].balance : 0;
-    const newBalance = lastBalance + (entry.moneyIn ?? 0) - (entry.moneyOut ?? 0);
-    const [created] = await db.insert(transactionHistory).values({ ...entry, userId, balance: newBalance }).returning();
+    const [created] = await db.insert(transactionHistory).values({ ...entry, userId }).returning();
     return created;
   }
 

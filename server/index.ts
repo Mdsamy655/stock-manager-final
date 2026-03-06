@@ -157,8 +157,7 @@ process.on("unhandledRejection", (reason) => {
                       actionType: "Return Charge",
                       reference: `Expense #${returnExpense.id}`,
                       description: `Return delivery charge - Order #${order.id} (${order.customerName || "Unknown"})`,
-                      moneyIn: 0,
-                      moneyOut: deliveryChargeAmount,
+                      amount: deliveryChargeAmount,
                     });
                   }
                 }

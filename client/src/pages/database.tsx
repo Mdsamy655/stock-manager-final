@@ -67,48 +67,11 @@ export default function DatabasePage() {
       return true;
     });
 
-  const totals = filteredHistory.reduce(
-    (acc, t) => ({
-      moneyIn: acc.moneyIn + (t.moneyIn ?? 0),
-      moneyOut: acc.moneyOut + (t.moneyOut ?? 0),
-    }),
-    { moneyIn: 0, moneyOut: 0 }
-  );
-
   return (
     <div className="p-4 md:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold" data-testid="text-page-title">Database</h1>
-        <p className="text-muted-foreground">Transaction History - All financial activity records</p>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground">Total Money In</div>
-            <div className="text-2xl font-bold text-green-600" data-testid="text-total-money-in">
-              ৳{totals.moneyIn.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground">Total Money Out</div>
-            <div className="text-2xl font-bold text-red-600" data-testid="text-total-money-out">
-              ৳{totals.moneyOut.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground">Current Balance</div>
-            <div className="text-2xl font-bold text-blue-600" data-testid="text-current-balance">
-              ৳{(allHistory && allHistory.length > 0)
-                ? allHistory[0].balance.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-                : "0"}
-            </div>
-          </CardContent>
-        </Card>
+        <p className="text-muted-foreground">Financial Activity History</p>
       </div>
 
       <Card>
@@ -116,8 +79,8 @@ export default function DatabasePage() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <CardTitle className="flex items-center gap-2">
               <DatabaseIcon className="h-5 w-5" />
-              Transaction Records
-              <Badge variant="secondary" data-testid="text-transaction-count">
+              Activity Records
+              <Badge variant="secondary" data-testid="text-record-count">
                 {filteredHistory.length}
               </Badge>
             </CardTitle>
@@ -125,7 +88,7 @@ export default function DatabasePage() {
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search transactions..."
+                  placeholder="Search activities..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-8 w-full sm:w-[250px]"
@@ -133,11 +96,11 @@ export default function DatabasePage() {
                 />
               </div>
               <Select value={actionFilter} onValueChange={setActionFilter}>
-                <SelectTrigger className="w-full sm:w-[180px]" data-testid="select-action-filter">
-                  <SelectValue placeholder="All Actions" />
+                <SelectTrigger className="w-full sm:w-[180px]" data-testid="select-type-filter">
+                  <SelectValue placeholder="All Types" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Actions</SelectItem>
+                  <SelectItem value="all">All Types</SelectItem>
                   {actionTypes.map((action) => (
                     <SelectItem key={action} value={action}>
                       {action}
@@ -158,8 +121,8 @@ export default function DatabasePage() {
           ) : filteredHistory.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground" data-testid="text-empty-state">
               <DatabaseIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium">No transactions found</p>
-              <p className="text-sm">Transactions will appear here automatically when you create sales, purchases, expenses, and other financial activities.</p>
+              <p className="text-lg font-medium">No activity records found</p>
+              <p className="text-sm">Records will appear here automatically when financial activities occur in the system.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -167,16 +130,15 @@ export default function DatabasePage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
-                    <TableHead>Action</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Reference</TableHead>
                     <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Money In</TableHead>
-                    <TableHead className="text-right">Money Out</TableHead>
-                    <TableHead className="text-right">Balance</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredHistory.map((entry) => (
-                    <TableRow key={entry.id} data-testid={`row-transaction-${entry.id}`}>
+                    <TableRow key={entry.id} data-testid={`row-activity-${entry.id}`}>
                       <TableCell className="whitespace-nowrap">
                         {entry.date
                           ? format(new Date(entry.date), "dd MMM yyyy, hh:mm a")
@@ -186,26 +148,19 @@ export default function DatabasePage() {
                         <Badge
                           variant="secondary"
                           className={actionColors[entry.actionType] || ""}
-                          data-testid={`badge-action-${entry.id}`}
+                          data-testid={`badge-type-${entry.id}`}
                         >
                           {entry.actionType}
                         </Badge>
                       </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {entry.reference}
+                      </TableCell>
                       <TableCell className="max-w-[350px] truncate">
                         {entry.description}
                       </TableCell>
-                      <TableCell className="text-right font-medium text-green-600">
-                        {(entry.moneyIn ?? 0) > 0
-                          ? `৳${entry.moneyIn!.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
-                          : "—"}
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-red-600">
-                        {(entry.moneyOut ?? 0) > 0
-                          ? `৳${entry.moneyOut!.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
-                          : "—"}
-                      </TableCell>
                       <TableCell className="text-right font-medium">
-                        ৳{entry.balance.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                        ৳{(entry.amount ?? 0).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                       </TableCell>
                     </TableRow>
                   ))}
