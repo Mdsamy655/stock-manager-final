@@ -60,6 +60,9 @@ const SINGLE_PRINT_STYLES = `
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
+    height: auto;
+    min-height: 100%;
     background: #fff;
   }
   .label-header {
@@ -118,15 +121,15 @@ const SINGLE_PRINT_STYLES = `
     justify-content: center;
     padding: 15px 20px;
     background: #fafafa;
-    flex: 1;
-    min-height: 0;
+    flex-shrink: 0;
+    margin-top: auto;
     gap: 10px;
   }
   .qr-box { flex-shrink: 0; }
   .qr-box svg { width: 140px; height: 140px; }
   .parcel-id { text-align: center; font-size: 14px; font-weight: 700; color: #333; letter-spacing: 1px; }
   .barcode-box { width: 80%; text-align: center; overflow: hidden; }
-  .barcode-box svg { max-width: 100%; height: 70px; }
+  .barcode-box svg { max-width: 100%; height: 40px; }
   .label-footer {
     text-align: center;
     padding: 8px 20px;

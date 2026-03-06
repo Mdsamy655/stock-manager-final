@@ -54,6 +54,8 @@ const BULK_PRINT_STYLES = `
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
+    min-height: 100%;
     background: #fff;
   }
   .label-header {
@@ -116,11 +118,11 @@ const BULK_PRINT_STYLES = `
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   padding: 2px 4px;
   background: #fafafa;
-  flex: 1;
-  min-height: 0;
+  flex-shrink: 0;
+  margin-top: auto;
   gap: 6px;
 }
   .qr-box { 
