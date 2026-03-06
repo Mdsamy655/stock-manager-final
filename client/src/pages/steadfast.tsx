@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,10 +35,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Truck, Send, RefreshCw, Package, CheckCircle, XCircle, Clock, Settings, Save, Trash2, Printer } from "lucide-react";
+import { Truck, Send, RefreshCw, Package, CheckCircle, XCircle, Clock, Settings, Save, Trash2, Printer, ExternalLink, Timer } from "lucide-react";
 import type { SaleWithItems } from "@shared/schema";
 import CourierLabel from "@/components/courier-label";
 import BulkLabelPrint from "@/components/bulk-label-print";
+
+const AUTO_REFRESH_INTERVAL = 30 * 60 * 1000;
 
 function formatTaka(amount: number): string {
   return `৳${amount.toLocaleString("en-BD")}`;
@@ -51,6 +53,10 @@ function formatDate(date: string | Date | null): string {
     month: "short",
     year: "numeric",
   });
+}
+
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
 }
 
 function getStatusBadge(status: string | null) {
@@ -85,6 +91,9 @@ export default function Steadfast() {
   const [labelSale, setLabelSale] = useState<SaleWithItems | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkPrintSales, setBulkPrintSales] = useState<SaleWithItems[] | null>(null);
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [bulkStatusTarget, setBulkStatusTarget] = useState<string | null>(null);
+  const autoRefreshTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { data: config, isLoading: configLoading } = useQuery<SteadfastConfigData>({
     queryKey: ["/api/steadfast-config"],
@@ -120,6 +129,45 @@ export default function Steadfast() {
     queryKey: ["/api/courier-sales"],
   });
 
+  const refreshAllData = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["/api/courier-sales"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+    setLastRefresh(new Date());
+  }, []);
+
+  const autoTrackStatuses = useCallback(async () => {
+    const activeSales = courierSales.filter(
+      (s) => s.consignmentId && s.courierStatus !== "delivered" && s.courierStatus !== "cancelled"
+    );
+    if (activeSales.length === 0) {
+      refreshAllData();
+      return;
+    }
+
+    try {
+      await apiRequest("POST", "/api/steadfast/bulk-status", {
+        saleIds: activeSales.map((s) => s.id),
+      });
+    } catch {
+      // silently fail for auto-refresh
+    }
+
+    refreshAllData();
+  }, [courierSales, refreshAllData]);
+
+  useEffect(() => {
+    if (autoRefreshTimer.current) clearInterval(autoRefreshTimer.current);
+
+    autoRefreshTimer.current = setInterval(() => {
+      autoTrackStatuses();
+    }, AUTO_REFRESH_INTERVAL);
+
+    return () => {
+      if (autoRefreshTimer.current) clearInterval(autoRefreshTimer.current);
+    };
+  }, [autoTrackStatuses]);
+
   const sendToCourier = useMutation({
     mutationFn: async ({ saleId, amount }: { saleId: number; amount: number }) => {
       const res = await apiRequest("POST", `/api/steadfast/send/${saleId}`, { amount });
@@ -148,6 +196,49 @@ export default function Steadfast() {
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       const status = data?.courierStatus || "unknown";
       toast({ title: "Status Updated", description: `Delivery status: ${status}` });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const bulkStatusMutation = useMutation({
+    mutationFn: async (saleIds: number[]) => {
+      const res = await apiRequest("POST", "/api/steadfast/bulk-status", { saleIds });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courier-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      const results = data?.results || [];
+      const updated = results.filter((r: any) => r.status !== "skipped").length;
+      toast({ title: "Bulk Status Updated", description: `${updated} order(s) checked` });
+      setSelectedIds(new Set());
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const bulkManualStatusMutation = useMutation({
+    mutationFn: async ({ saleIds, status }: { saleIds: number[]; status: string }) => {
+      const promises = saleIds.map((id) =>
+        apiRequest("POST", `/api/steadfast/manual-status/${id}`, { status }).then((r) => r.json())
+      );
+      return Promise.allSettled(promises);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courier-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({ title: "Bulk Status Updated", description: `Status set to: ${bulkStatusTarget}` });
+      setSelectedIds(new Set());
+      setBulkStatusTarget(null);
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -195,6 +286,11 @@ export default function Steadfast() {
 
   const isLoading = salesLoading || courierLoading;
   const isConfigured = config && config.apiKey && config.secretKey;
+
+  const handleTrack = (consignmentId: string) => {
+    const trackUrl = `https://steadfast.com.bd/t/${consignmentId}`;
+    window.open(trackUrl, "_blank", "noopener,noreferrer");
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -356,25 +452,77 @@ export default function Steadfast() {
 
       <Card data-testid="card-courier-orders">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Truck className="h-5 w-5" />
-              Courier Orders ({courierSales.length})
-            </CardTitle>
-            {courierSales.length > 0 && selectedIds.size > 0 && (
-              <Button
-                size="sm"
-                onClick={() => {
-                  const selected = courierSales.filter(s => selectedIds.has(s.id));
-                  if (selected.length === 0) return;
-                  setBulkPrintSales(selected);
-                }}
-                data-testid="button-print-selected-labels"
-              >
-                <Printer className="h-4 w-4 mr-1" />
-                Print Selected ({selectedIds.size})
-              </Button>
-            )}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Truck className="h-5 w-5" />
+                Courier Orders ({courierSales.length})
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                {selectedIds.size > 0 && (
+                  <>
+                    <Select
+                      value={bulkStatusTarget || ""}
+                      onValueChange={(value) => {
+                        setBulkStatusTarget(value);
+                        bulkManualStatusMutation.mutate({
+                          saleIds: Array.from(selectedIds),
+                          status: value,
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="w-[150px] h-8 text-xs" data-testid="select-bulk-status">
+                        <SelectValue placeholder="Bulk Set Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="in_review">In Review</SelectItem>
+                        <SelectItem value="delivered">Delivered</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => bulkStatusMutation.mutate(Array.from(selectedIds))}
+                      disabled={bulkStatusMutation.isPending || !isConfigured}
+                      data-testid="button-bulk-check-status"
+                    >
+                      <RefreshCw className={`h-4 w-4 mr-1 ${bulkStatusMutation.isPending ? "animate-spin" : ""}`} />
+                      Check Status ({selectedIds.size})
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const selected = courierSales.filter(s => selectedIds.has(s.id));
+                        if (selected.length === 0) return;
+                        setBulkPrintSales(selected);
+                      }}
+                      data-testid="button-print-selected-labels"
+                    >
+                      <Printer className="h-4 w-4 mr-1" />
+                      Print ({selectedIds.size})
+                    </Button>
+                  </>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => autoTrackStatuses()}
+                  disabled={bulkStatusMutation.isPending}
+                  data-testid="button-refresh-all"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-1 ${bulkStatusMutation.isPending ? "animate-spin" : ""}`} />
+                  Refresh All
+                </Button>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground" data-testid="text-auto-refresh-info">
+              <Timer className="h-3.5 w-3.5" />
+              <span>Auto refresh every 30 minutes</span>
+              <span className="text-muted-foreground/60">|</span>
+              <span>Last refresh: {formatTime(lastRefresh)}</span>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -477,6 +625,17 @@ export default function Steadfast() {
                           <RefreshCw className={`h-4 w-4 mr-1 ${checkStatusMutation.isPending ? "animate-spin" : ""}`} />
                           Status
                         </Button>
+                        {sale.consignmentId && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleTrack(sale.consignmentId!)}
+                            data-testid={`button-track-${sale.id}`}
+                          >
+                            <ExternalLink className="h-4 w-4 mr-1" />
+                            Track
+                          </Button>
+                        )}
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button

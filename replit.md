@@ -19,10 +19,10 @@ A professional inventory management system built with Node.js, Express, React, a
 - **Customers:** Add/view customers with due amount tracking
 - **Payments:** Record/delete customer payments that adjust their due amounts
 - **Investors:** Track investor contributions with cash/product types, withdraw from investor balance
-- **Steadfast Courier:** Dynamic API config stored in DB; send sales to Steadfast courier with editable COD amount per order; track status; fixed 110 BDT courier charge on send; profit/cash only counted when delivered; stock restored on cancel; cancelled sales zero out payment/due
+- **Steadfast Courier:** Dynamic API config stored in DB; send sales to Steadfast courier with editable COD amount per order; track status; fixed 110 BDT courier charge on send; profit/cash only counted when delivered; stock restored on cancel; cancelled sales zero out payment/due; auto-refresh every 30 minutes with visible timestamp; bulk status check for selected orders; bulk manual status set; Track button opens Steadfast tracking page; Refresh All button for manual instant refresh
 - **Customer Details:** View individual customer transaction history
 - **Invoice System:** Generate printable/downloadable PDF invoices with COD fee and weight display
-- **Database (Activity Log):** Automatic activity recording for Sale, Purchase, Expense, Courier Expense, Return Charge, Investment, Withdrawal, and Payment Received. Single `amount` field per record. Searchable/filterable table with color-coded action type badges. No balance or totals — just a flat activity history.
+- **Database (Activity Log):** Automatic activity recording for Sale, Purchase, Expense, Courier Expense, Return Charge, Investment, Withdrawal, and Payment Received. Single `amount` field per record. Searchable/filterable table with color-coded action type badges. Delete button per record with confirmation dialog. No balance or totals — just a flat activity history.
 
 ## Data Model
 - `users` - name, email (unique), password (bcrypt hash), googleId (nullable)
@@ -66,7 +66,9 @@ A professional inventory management system built with Node.js, Express, React, a
 - `GET /api/courier-sales`
 - `POST /api/steadfast/send/:id`, `DELETE /api/steadfast/order/:id`, `POST /api/steadfast/status/:id`
 - `POST /api/steadfast/manual-status/:id` — manual status update (pending, in_review, delivered, cancelled) with financial/stock effects
+- `POST /api/steadfast/bulk-status` — bulk check courier status via API for multiple sale IDs
 - `GET /api/transaction-history` - Financial activity records
+- `DELETE /api/transaction-history/:id` - Delete individual activity record
 
 ## Weight & COD Logic
 - **Weight:** Each product has optional `weightPerUnit` (KG). During sales, line weight = quantity × weightPerUnit. Total weight = sum of all line weights. Stored in `sales.total_weight`.

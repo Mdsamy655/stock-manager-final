@@ -868,6 +868,45 @@ export async function registerRoutes(
     }
   }
 
+  app.post("/api/steadfast/bulk-status", async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const config = await storage.getSteadfastConfig(userId);
+      if (!config) return res.status(400).json({ message: "Steadfast API not configured." });
+
+      const { saleIds } = req.body;
+      if (!Array.isArray(saleIds) || saleIds.length === 0) {
+        return res.status(400).json({ message: "No sale IDs provided" });
+      }
+
+      const allSales = await storage.getCourierSales(userId);
+      const results: { id: number; status: string; error?: string }[] = [];
+
+      for (const saleId of saleIds) {
+        const sale = allSales.find((s) => s.id === saleId);
+        if (!sale || !sale.consignmentId) {
+          results.push({ id: saleId, status: "skipped", error: "No consignment ID" });
+          continue;
+        }
+        try {
+          const result = await checkSteadfastStatus(config, sale.consignmentId);
+          const newStatus = result.delivery_status;
+          const oldStatus = sale.courierStatus;
+          await storage.updateSaleCourier(saleId, userId, sale.consignmentId, newStatus);
+          await applyCourierStatusFinancials(saleId, userId, sale, oldStatus, newStatus);
+          results.push({ id: saleId, status: newStatus });
+        } catch (err: any) {
+          results.push({ id: saleId, status: sale.courierStatus || "unknown", error: err.message });
+        }
+      }
+
+      res.json({ results });
+    } catch (error: any) {
+      console.log("Bulk status check error:", error.message);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/steadfast/status/:id", async (req, res) => {
     try {
       const userId = req.user!.id;
