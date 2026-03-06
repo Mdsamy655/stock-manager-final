@@ -8,7 +8,7 @@ A professional inventory management system built with Node.js, Express, React, a
 - **Backend:** Express.js API server
 - **Database:** PostgreSQL with Drizzle ORM
 - **Styling:** Tailwind CSS with Shadcn design system
-- **Auth:** TEMPORARILY DISABLED — middleware bypassed, default user id=4 used for all requests. Auth code preserved in server/auth.ts and client/src/hooks/use-auth.tsx for future re-enablement.
+- **Auth:** JWT-based authentication with bcrypt password hashing. Login/Register on client/src/pages/login.tsx, AuthProvider in client/src/hooks/use-auth.tsx, middleware in server/auth.ts. Token stored in localStorage, 30-day expiry. All /api routes (except /api/auth/*) require valid Bearer token.
 
 ## Key Features
 - **Dashboard:** Cash In Hand, Stock Value, Total Sales, Other Expenses (excl. courier), Profit, Investment, Low Stock Alerts, Working Capital, Permanent Assets, Daily & Monthly summaries
