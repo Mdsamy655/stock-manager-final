@@ -40,7 +40,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, Trash2, Package, Pencil } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Plus, Trash2, Package, Pencil, Printer } from "lucide-react";
+import { ProductBarcodePrintDialog } from "@/components/product-barcode-print";
 import type { Product } from "@shared/schema";
 
 const productFormSchema = z.object({
@@ -69,6 +71,9 @@ function formatTaka(amount: number): string {
 export default function Products() {
   const [open, setOpen] = useState(false);
   const [stockModalProduct, setStockModalProduct] = useState<Product | null>(null);
+  const [selectedProducts, setSelectedProducts] = useState<Set<number>>(new Set());
+  const [barcodePrintProducts, setBarcodePrintProducts] = useState<Product[]>([]);
+  const [barcodePrintOpen, setBarcodePrintOpen] = useState(false);
   const { toast } = useToast();
 
   const { data: products, isLoading } = useQuery<Product[]>({
@@ -147,6 +152,40 @@ export default function Products() {
         : qty
     : 0;
 
+  const toggleSelect = (id: number) => {
+    setSelectedProducts((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (!products) return;
+    if (selectedProducts.size === products.length) {
+      setSelectedProducts(new Set());
+    } else {
+      setSelectedProducts(new Set(products.map((p) => p.id)));
+    }
+  };
+
+  const handlePrintSingle = (product: Product) => {
+    setBarcodePrintProducts([product]);
+    setBarcodePrintOpen(true);
+  };
+
+  const handlePrintSelected = () => {
+    if (!products) return;
+    const selected = products.filter((p) => selectedProducts.has(p.id));
+    if (selected.length === 0) {
+      toast({ title: "No products selected", description: "Select products to print barcodes", variant: "destructive" });
+      return;
+    }
+    setBarcodePrintProducts(selected);
+    setBarcodePrintOpen(true);
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -154,13 +193,20 @@ export default function Products() {
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Products</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage your product inventory</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-product">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Product
+        <div className="flex items-center gap-2">
+          {selectedProducts.size > 0 && (
+            <Button variant="outline" onClick={handlePrintSelected} data-testid="button-print-selected-barcodes">
+              <Printer className="h-4 w-4 mr-2" />
+              Print Selected ({selectedProducts.size})
             </Button>
-          </DialogTrigger>
+          )}
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-product">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Product
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Add New Product</DialogTitle>
@@ -256,6 +302,7 @@ export default function Products() {
             </Form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Dialog open={!!stockModalProduct} onOpenChange={(v) => { if (!v) { setStockModalProduct(null); stockForm.reset(); } }}>
@@ -361,6 +408,13 @@ export default function Products() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={products!.length > 0 && selectedProducts.size === products!.length}
+                        onCheckedChange={toggleSelectAll}
+                        data-testid="checkbox-select-all-products"
+                      />
+                    </TableHead>
                     <TableHead>Code</TableHead>
                     <TableHead>Product Name</TableHead>
                     <TableHead className="text-right">Total Product Price</TableHead>
@@ -375,6 +429,13 @@ export default function Products() {
                 <TableBody>
                   {products.map((product) => (
                     <TableRow key={product.id} data-testid={`row-product-${product.id}`}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedProducts.has(product.id)}
+                          onCheckedChange={() => toggleSelect(product.id)}
+                          data-testid={`checkbox-select-product-${product.id}`}
+                        />
+                      </TableCell>
                       <TableCell className="text-muted-foreground font-mono text-sm" data-testid={`text-product-code-${product.id}`}>
                         {product.productCode || "-"}
                       </TableCell>
@@ -410,15 +471,27 @@ export default function Products() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => deleteMutation.mutate(product.id)}
-                          disabled={deleteMutation.isPending}
-                          data-testid={`button-delete-product-${product.id}`}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => handlePrintSingle(product)}
+                            data-testid={`button-print-barcode-${product.id}`}
+                          >
+                            <Printer className="h-3.5 w-3.5 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => deleteMutation.mutate(product.id)}
+                            disabled={deleteMutation.isPending}
+                            data-testid={`button-delete-product-${product.id}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -434,6 +507,12 @@ export default function Products() {
           )}
         </CardContent>
       </Card>
+
+      <ProductBarcodePrintDialog
+        products={barcodePrintProducts}
+        open={barcodePrintOpen}
+        onOpenChange={setBarcodePrintOpen}
+      />
     </div>
   );
 }

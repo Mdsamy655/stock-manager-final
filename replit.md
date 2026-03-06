@@ -12,7 +12,7 @@ A professional inventory management system built with Node.js, Express, React, a
 
 ## Key Features
 - **Dashboard:** Cash In Hand, Stock Value, Total Sales, Other Expenses (excl. courier), Profit, Investment, Low Stock Alerts, Working Capital, Permanent Assets, Daily & Monthly summaries
-- **Products:** Add/delete products with cost price, sale price, stock tracking, weight per unit (KG), and manual stock adjustment (Add/Reduce/Set Exact with history logging)
+- **Products:** Add/delete products with cost price, sale price, stock tracking, weight per unit (KG), manual stock adjustment (Add/Reduce/Set Exact with history logging), and barcode label printing (single or bulk, with configurable options: barcode, product code, name, price, shop name; 60mm×40mm sticker labels)
 - **Sales:** Invoice-style multi-product sales with automatic stock reduction per item, editable sale price per line item, optional 1% COD fee toggle, line weight display (quantity × weightPerUnit), total weight calculation, optional customer assignment, partial payment with due tracking
 - **Expenses:** Three sections: Courier Expenses (auto-created, category "Delivery"), Other Expenses (manual business costs), Permanent Assets (long-term assets). Dashboard only shows "Other Expenses".
 - **Purchases:** Record stock purchases with automatic stock increase. Auto-created when a product is added with initial stock.
