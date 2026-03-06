@@ -1,7 +1,17 @@
 import { useEffect, useRef } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { generateBarcodeSvgString } from "./courier-label";
 import type { SaleWithItems } from "@shared/schema";
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
 function formatTaka(amount: number): string {
   return `৳${amount.toLocaleString("en-BD")}`;
@@ -9,16 +19,8 @@ function formatTaka(amount: number): string {
 
 function formatLabelDate(date: string | Date | null): string {
   if (!date)
-    return new Date().toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  return new Date(date).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+    return new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 const BULK_PRINT_STYLES = `
@@ -26,94 +28,106 @@ const BULK_PRINT_STYLES = `
   html, body { width: 210mm; font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a1a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   @page { size: A4 portrait; margin: 0; }
   .page {
-  width: 210mm;
-  height: 297mm;
-  padding: 4mm 3mm;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 3mm;
-  page-break-after: always;
-}
+    width: 210mm;
+    height: 297mm;
+    padding: 5mm 5mm;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 3mm;
+    page-break-after: always;
+  }
   .page:last-child { page-break-after: auto; break-after: auto; }
   .label-card {
-  width: 68mm;
-  height: 90mm;
-  border: 1.5px solid #333;
-  border-radius: 4px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
+    width: 100%;
+    height: 100%;
+    border: 1.5px solid #222;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
   .label-header {
-    background: #1a1a1a;
+    background: #111;
     color: #fff;
-    padding: 3px 10px;
+    padding: 2px 6px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-shrink: 0;
   }
-  .label-header-left { font-size: 7px; opacity: 0.85; }
-  .label-header-right { font-size: 7px; opacity: 0.85; text-align: right; }
-  .parcel-id-row {
-    padding: 5px 10px;
+  .label-header-left { font-size: 5.5px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; }
+  .label-header-right { font-size: 5.5px; opacity: 0.9; }
+  .tracking-row {
+    padding: 4px 6px 3px;
     text-align: center;
-    border-bottom: 1px solid #ccc;
-    background: #f5f5f5;
+    border-bottom: 1.5px solid #222;
+    background: #f8f8f8;
     flex-shrink: 0;
   }
-  .parcel-id-label { font-size: 6.5px; text-transform: uppercase; color: #666; letter-spacing: 1px; margin-bottom: 1px; }
-  .parcel-id-value { font-size: 24px; font-weight: 900; letter-spacing: 3px; color: #000; line-height: 1.1; }
-  .body-row {
+  .tracking-label { font-size: 5px; text-transform: uppercase; color: #666; letter-spacing: 1px; margin-bottom: 1px; font-weight: 600; }
+  .tracking-value { font-size: 16px; font-weight: 900; letter-spacing: 2px; color: #000; line-height: 1.1; }
+  .details-row {
     display: flex;
     border-bottom: 1px solid #ddd;
     flex: 1;
     min-height: 0;
   }
-  .body-section {
+  .detail-section {
     flex: 1;
-    padding: 4px 10px;
+    padding: 3px 6px;
     overflow: hidden;
   }
-  .body-section + .body-section { border-left: 1px solid #ddd; }
-  .section-title { font-size: 6px; font-weight: 700; text-transform: uppercase; color: #999; letter-spacing: 0.8px; margin-bottom: 1px; }
-  .section-name { font-size: 9.5px; font-weight: 600; line-height: 1.2; }
-  .section-detail { font-size: 8px; color: #444; line-height: 1.3; margin-top: 1px; font-weight: bold; }
-  .cod-qr-row {
+  .detail-section + .detail-section { border-left: 1px solid #ddd; }
+  .detail-title { font-size: 5px; font-weight: 700; text-transform: uppercase; color: #999; letter-spacing: 0.8px; margin-bottom: 1px; }
+  .detail-name { font-size: 8px; font-weight: 700; line-height: 1.2; color: #111; }
+  .detail-info { font-size: 6.5px; color: #333; line-height: 1.3; margin-top: 1px; font-weight: 500; }
+  .cod-weight-row {
     display: flex;
-    align-items: center;
     border-bottom: 1px solid #ddd;
     flex-shrink: 0;
   }
-  .cod-section {
+  .cod-box {
     flex: 1;
     text-align: center;
-    padding: 4px 10px;
+    padding: 3px 6px;
+    background: #fff5f5;
+    border-right: 1px solid #ddd;
   }
-  .cod-label { font-size: 6.5px; text-transform: uppercase; color: #888; letter-spacing: 0.8px; margin-bottom: 1px; }
-  .cod-value { font-size: 16px; font-weight: 800; color: #dc2626; }
-  .qr-section {
-padding: 3px 10px;
-display: flex;
-align-items: center;
-justify-content: center;
-border-left: 1px solid #ddd;
-}
-
-.qr-section svg{
-width:100px;
-height:100px;
-}
-  .footer-row {
+  .cod-label { font-size: 5px; text-transform: uppercase; color: #888; letter-spacing: 0.8px; margin-bottom: 1px; font-weight: 600; }
+  .cod-amount { font-size: 14px; font-weight: 900; color: #dc2626; }
+  .weight-box {
     display: flex;
-    justify-content: space-between;
-    padding: 2px 10px;
-    font-size: 6.5px;
-    color: #777;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 10px;
+  }
+  .weight-label { font-size: 5px; text-transform: uppercase; color: #888; letter-spacing: 0.8px; margin-bottom: 1px; font-weight: 600; }
+  .weight-value { font-size: 10px; font-weight: 700; color: #333; }
+  .codes-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 3px 6px;
+    border-bottom: 1px solid #eee;
     background: #fafafa;
     flex-shrink: 0;
   }
-  .footer-row strong { color: #333; }
+  .qr-box { flex-shrink: 0; }
+  .qr-box svg { width: 36px; height: 36px; }
+  .barcode-box { flex: 1; text-align: center; overflow: hidden; }
+  .barcode-box svg { max-width: 100%; height: 28px; }
+  .label-footer {
+    text-align: center;
+    padding: 2px 6px;
+    font-size: 5px;
+    color: #999;
+    background: #f5f5f5;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+  }
 `;
 
 function buildSingleLabelHtml(
@@ -128,57 +142,67 @@ function buildSingleLabelHtml(
       : sale.dueAmount > 0
         ? sale.dueAmount
         : sale.totalPrice;
-  const parcelId = sale.consignmentId || "N/A";
+  const trackingNumber = sale.consignmentId || "N/A";
   const hasSender = companyName || companyPhone || companyAddress;
+  const weight = sale.totalWeight ?? 0;
 
   const qrSvg = sale.consignmentId
     ? renderToStaticMarkup(
-        <QRCodeSVG value={sale.consignmentId} size={44} level="M" />,
+        <QRCodeSVG value={sale.consignmentId} size={36} level="M" />,
       )
+    : "";
+
+  const barcodeSvg = sale.consignmentId
+    ? generateBarcodeSvgString(sale.consignmentId)
     : "";
 
   return `
     <div class="label-card">
       <div class="label-header">
-        <div class="label-header-left">COURIER LABEL &middot; Sale #${sale.id}</div>
+        <div class="label-header-left">Shipping Label &middot; #${sale.id}</div>
         <div class="label-header-right">${formatLabelDate(sale.createdAt)}</div>
       </div>
-      <div class="parcel-id-row">
-        <div class="parcel-id-label">Parcel ID / Consignment</div>
-        <div class="parcel-id-value">${parcelId}</div>
+      <div class="tracking-row">
+        <div class="tracking-label">Tracking Number</div>
+        <div class="tracking-value">${escapeHtml(trackingNumber)}</div>
       </div>
-      <div class="body-row">
+      <div class="details-row">
         ${
           hasSender
             ? `
-          <div class="body-section">
-            <div class="section-title">From / Sender</div>
-            ${companyName ? `<div class="section-name">${companyName}</div>` : ""}
-            ${companyPhone ? `<div class="section-detail">${companyPhone}</div>` : ""}
-            ${companyAddress ? `<div class="section-detail">${companyAddress}</div>` : ""}
+          <div class="detail-section">
+            <div class="detail-title">From</div>
+            ${companyName ? `<div class="detail-name">${escapeHtml(companyName)}</div>` : ""}
+            ${companyPhone ? `<div class="detail-info">${escapeHtml(companyPhone)}</div>` : ""}
+            ${companyAddress ? `<div class="detail-info">${escapeHtml(companyAddress)}</div>` : ""}
           </div>
         `
             : ""
         }
-        <div class="body-section">
-          <div class="section-title">To / Recipient</div>
-          <div class="section-name">${sale.customerName || "N/A"}</div>
-          <div class="section-detail">${sale.customerPhone || ""}</div>
-          <div class="section-detail">${sale.customerAddress || ""}</div>
+        <div class="detail-section">
+          <div class="detail-title">To</div>
+          <div class="detail-name">${escapeHtml(sale.customerName || "N/A")}</div>
+          <div class="detail-info">${escapeHtml(sale.customerPhone || "")}</div>
+          <div class="detail-info">${escapeHtml(sale.customerAddress || "")}</div>
         </div>
       </div>
-      <div class="cod-qr-row">
-        <div class="cod-section">
+      <div class="cod-weight-row">
+        <div class="cod-box">
           <div class="cod-label">COD Amount</div>
-          <div class="cod-value">${formatTaka(codAmount)}</div>
+          <div class="cod-amount">${formatTaka(codAmount)}</div>
         </div>
-        ${qrSvg ? `<div class="qr-section">${qrSvg}</div>` : ""}
+        <div class="weight-box">
+          <div class="weight-label">Weight</div>
+          <div class="weight-value">${weight > 0 ? `${weight.toFixed(2)} KG` : "—"}</div>
+        </div>
       </div>
-      <div class="footer-row">
-        <span>Consignment: <strong>${parcelId}</strong></span>
-        <span>Items: <strong>${sale.items.length}</strong></span>
-        ${(sale.totalWeight ?? 0) > 0 ? `<span>Weight: <strong>${(sale.totalWeight ?? 0).toFixed(2)} KG</strong></span>` : ""}
-      </div>
+      ${sale.consignmentId ? `
+        <div class="codes-row">
+          <div class="qr-box">${qrSvg}</div>
+          <div class="barcode-box">${barcodeSvg}</div>
+        </div>
+      ` : ""}
+      <div class="label-footer">Powered by CPSBD Business (FB Page)</div>
     </div>
   `;
 }
@@ -188,10 +212,7 @@ interface BulkLabelPrintProps {
   onClose: () => void;
 }
 
-export default function BulkLabelPrint({
-  sales,
-  onClose,
-}: BulkLabelPrintProps) {
+export default function BulkLabelPrint({ sales, onClose }: BulkLabelPrintProps) {
   const triggered = useRef(false);
 
   const companyName = localStorage.getItem("label_company_name") || "";

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Printer, Download } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import JsBarcode from "jsbarcode";
 import type { SaleWithItems } from "@shared/schema";
 
 function formatTaka(amount: number): string {
@@ -21,78 +22,93 @@ function formatLabelDate(date: string | Date | null): string {
   return new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-const PRINT_STYLES = `
+export const LABEL_STYLES = `
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; color: #1a1a1a; }
   @page { size: A4 portrait; margin: 10mm 10mm; }
   .label-page { width: 100%; }
   .label-card {
     width: 100%;
-    border: 1.5px solid #333;
-    border-radius: 4px;
+    border: 2px solid #222;
+    border-radius: 6px;
     overflow: hidden;
     page-break-inside: avoid;
     break-inside: avoid;
     margin-bottom: 8mm;
+    background: #fff;
   }
   .label-header {
-    background: #1a1a1a;
+    background: #111;
     color: #fff;
-    padding: 4px 10px;
+    padding: 6px 12px;
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
-  .label-header-left { font-size: 7px; opacity: 0.85; }
-  .label-header-right { font-size: 7px; opacity: 0.85; text-align: right; }
-  .parcel-id-row {
-    padding: 8px 10px;
+  .label-header-left { font-size: 8px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+  .label-header-right { font-size: 8px; opacity: 0.9; text-align: right; }
+  .tracking-row {
+    padding: 10px 12px 8px;
     text-align: center;
-    border-bottom: 1px solid #ccc;
-    background: #f5f5f5;
+    border-bottom: 2px solid #222;
+    background: #f8f8f8;
   }
-  .parcel-id-label { font-size: 7px; text-transform: uppercase; color: #666; letter-spacing: 1px; margin-bottom: 2px; }
-  .parcel-id-value { font-size: 28px; font-weight: 900; letter-spacing: 3px; color: #000; line-height: 1.1; }
-  .body-row {
+  .tracking-label { font-size: 7px; text-transform: uppercase; color: #666; letter-spacing: 1.5px; margin-bottom: 3px; font-weight: 600; }
+  .tracking-value { font-size: 26px; font-weight: 900; letter-spacing: 3px; color: #000; line-height: 1.1; }
+  .details-row {
     display: flex;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1.5px solid #ddd;
   }
-  .body-section {
+  .detail-section {
     flex: 1;
-    padding: 5px 10px;
+    padding: 8px 12px;
   }
-  .body-section + .body-section { border-left: 1px solid #ddd; }
-  .section-title { font-size: 6.5px; font-weight: 700; text-transform: uppercase; color: #999; letter-spacing: 0.8px; margin-bottom: 2px; }
-  .section-name { font-size: 10px; font-weight: 600; line-height: 1.2; }
-  .section-detail { font-size: 8.5px; color: #444; line-height: 1.3; margin-top: 1px; }
-  .cod-qr-row {
+  .detail-section + .detail-section { border-left: 1.5px solid #ddd; }
+  .detail-title { font-size: 7px; font-weight: 700; text-transform: uppercase; color: #999; letter-spacing: 1px; margin-bottom: 3px; }
+  .detail-name { font-size: 11px; font-weight: 700; line-height: 1.3; color: #111; }
+  .detail-info { font-size: 9px; color: #333; line-height: 1.4; margin-top: 2px; font-weight: 500; }
+  .cod-weight-row {
     display: flex;
+    border-bottom: 1.5px solid #ddd;
+  }
+  .cod-box {
+    flex: 1;
+    text-align: center;
+    padding: 8px 12px;
+    background: #fff5f5;
+    border-right: 1.5px solid #ddd;
+  }
+  .cod-label { font-size: 7px; text-transform: uppercase; color: #888; letter-spacing: 1px; margin-bottom: 2px; font-weight: 600; }
+  .cod-amount { font-size: 22px; font-weight: 900; color: #dc2626; }
+  .weight-box {
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    border-bottom: 1px solid #ddd;
+    justify-content: center;
+    padding: 8px 16px;
   }
-  .cod-section {
-    flex: 1;
-    text-align: center;
-    padding: 6px 10px;
-  }
-  .cod-label { font-size: 7px; text-transform: uppercase; color: #888; letter-spacing: 0.8px; margin-bottom: 1px; }
-  .cod-value { font-size: 18px; font-weight: 800; color: #dc2626; }
-  .qr-section {
-    padding: 4px 10px;
+  .weight-label { font-size: 7px; text-transform: uppercase; color: #888; letter-spacing: 1px; margin-bottom: 2px; font-weight: 600; }
+  .weight-value { font-size: 14px; font-weight: 700; color: #333; }
+  .codes-row {
     display: flex;
     align-items: center;
     justify-content: center;
-    border-left: 1px solid #ddd;
-  }
-  .footer-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 3px 10px;
-    font-size: 7px;
-    color: #777;
+    gap: 12px;
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
     background: #fafafa;
   }
-  .footer-row strong { color: #333; }
+  .qr-box { flex-shrink: 0; }
+  .barcode-box { flex: 1; text-align: center; overflow: hidden; }
+  .barcode-box svg { max-width: 100%; height: auto; }
+  .label-footer {
+    text-align: center;
+    padding: 4px 12px;
+    font-size: 7px;
+    color: #999;
+    background: #f5f5f5;
+    letter-spacing: 0.5px;
+  }
   @media print {
     body { padding: 0 !important; }
     .label-card { margin-bottom: 8mm; }
@@ -103,6 +119,46 @@ interface CourierLabelProps {
   sale: SaleWithItems;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+function BarcodeComponent({ value }: { value: string }) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  useEffect(() => {
+    if (svgRef.current && value) {
+      try {
+        JsBarcode(svgRef.current, value, {
+          format: "CODE128",
+          width: 1.5,
+          height: 40,
+          displayValue: false,
+          margin: 0,
+        });
+      } catch {
+        // ignore invalid barcode values
+      }
+    }
+  }, [value]);
+  return <svg ref={svgRef} />;
+}
+
+export function generateBarcodeSvgString(value: string): string {
+  if (!value || value === "N/A") return "";
+  try {
+    const doc = document.implementation.createDocument("http://www.w3.org/2000/svg", "svg", null);
+    const svgEl = doc.documentElement;
+    JsBarcode(svgEl, value, {
+      format: "CODE128",
+      width: 1.5,
+      height: 40,
+      displayValue: false,
+      margin: 0,
+      xmlDocument: doc,
+    });
+    const serializer = new XMLSerializer();
+    return serializer.serializeToString(svgEl);
+  } catch {
+    return "";
+  }
 }
 
 export default function CourierLabel({ sale, open, onOpenChange }: CourierLabelProps) {
@@ -120,7 +176,26 @@ export default function CourierLabel({ sale, open, onOpenChange }: CourierLabelP
   const buildLabelHtml = () => {
     const content = labelRef.current;
     if (!content) return "";
-    return content.querySelector(".label-card")?.outerHTML || "";
+    const card = content.querySelector(".label-card");
+    if (!card) return "";
+    const clone = card.cloneNode(true) as HTMLElement;
+    const reactBarcode = clone.querySelector(".barcode-box");
+    if (reactBarcode && sale.consignmentId) {
+      const barcodeSvg = generateBarcodeSvgString(sale.consignmentId);
+      if (barcodeSvg) {
+        reactBarcode.innerHTML = barcodeSvg;
+      }
+    }
+    const reactQr = clone.querySelector(".qr-box");
+    if (reactQr && sale.consignmentId) {
+      const tempDiv = document.createElement("div");
+      const existingQr = content.querySelector(".qr-box svg");
+      if (existingQr) {
+        tempDiv.appendChild(existingQr.cloneNode(true));
+        reactQr.innerHTML = tempDiv.innerHTML;
+      }
+    }
+    return clone.outerHTML;
   };
 
   const handlePrint = () => {
@@ -136,7 +211,7 @@ export default function CourierLabel({ sale, open, onOpenChange }: CourierLabelP
       <html>
       <head>
         <title>Courier Label - ${sale.consignmentId || sale.id}</title>
-        <style>${PRINT_STYLES}</style>
+        <style>${LABEL_STYLES}</style>
       </head>
       <body><div class="label-page">${singleLabel}</div></body>
       </html>
@@ -153,7 +228,7 @@ export default function CourierLabel({ sale, open, onOpenChange }: CourierLabelP
 
     const container = document.createElement("div");
     container.style.cssText = "position:absolute;left:-9999px;top:0;width:190mm;background:#fff;padding:0;";
-    container.innerHTML = `<style>${PRINT_STYLES}</style><div class="label-page">${singleLabel}</div>`;
+    container.innerHTML = `<style>${LABEL_STYLES}</style><div class="label-page">${singleLabel}</div>`;
     document.body.appendChild(container);
 
     const html2canvas = (await import("html2canvas")).default;
@@ -171,7 +246,8 @@ export default function CourierLabel({ sale, open, onOpenChange }: CourierLabelP
   };
 
   const codAmount = sale.paidAmount === 0 ? sale.totalPrice : sale.dueAmount > 0 ? sale.dueAmount : sale.totalPrice;
-  const parcelId = sale.consignmentId || "N/A";
+  const trackingNumber = sale.consignmentId || "N/A";
+  const weight = sale.totalWeight ?? 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -232,57 +308,63 @@ export default function CourierLabel({ sale, open, onOpenChange }: CourierLabelP
         <div className="border rounded-lg bg-white p-3">
           <p className="text-xs text-muted-foreground mb-2 text-center">Label Preview</p>
           <div ref={labelRef}>
-            <style>{PRINT_STYLES}</style>
+            <style>{LABEL_STYLES}</style>
             <div className="label-card">
               <div className="label-header">
                 <div className="label-header-left">
-                  COURIER LABEL &middot; Sale #{sale.id}
+                  Shipping Label &middot; Sale #{sale.id}
                 </div>
                 <div className="label-header-right">
                   {formatLabelDate(sale.createdAt)}
                 </div>
               </div>
 
-              <div className="parcel-id-row">
-                <div className="parcel-id-label">Parcel ID / Consignment</div>
-                <div className="parcel-id-value" data-testid="text-label-parcel-id">{parcelId}</div>
+              <div className="tracking-row">
+                <div className="tracking-label">Tracking Number</div>
+                <div className="tracking-value" data-testid="text-label-parcel-id">{trackingNumber}</div>
               </div>
 
-              <div className="body-row">
+              <div className="details-row">
                 {(companyName || companyPhone || companyAddress) && (
-                  <div className="body-section">
-                    <div className="section-title">From / Sender</div>
-                    {companyName && <div className="section-name" data-testid="text-label-sender-name">{companyName}</div>}
-                    {companyPhone && <div className="section-detail">{companyPhone}</div>}
-                    {companyAddress && <div className="section-detail">{companyAddress}</div>}
+                  <div className="detail-section">
+                    <div className="detail-title">From</div>
+                    {companyName && <div className="detail-name" data-testid="text-label-sender-name">{companyName}</div>}
+                    {companyPhone && <div className="detail-info">{companyPhone}</div>}
+                    {companyAddress && <div className="detail-info">{companyAddress}</div>}
                   </div>
                 )}
-                <div className="body-section">
-                  <div className="section-title">To / Recipient</div>
-                  <div className="section-name" data-testid="text-label-customer-name">{sale.customerName || "N/A"}</div>
-                  <div className="section-detail" data-testid="text-label-customer-phone">{sale.customerPhone || ""}</div>
-                  <div className="section-detail" data-testid="text-label-customer-address">{sale.customerAddress || ""}</div>
+                <div className="detail-section">
+                  <div className="detail-title">To</div>
+                  <div className="detail-name" data-testid="text-label-customer-name">{sale.customerName || "N/A"}</div>
+                  <div className="detail-info" data-testid="text-label-customer-phone">{sale.customerPhone || ""}</div>
+                  <div className="detail-info" data-testid="text-label-customer-address">{sale.customerAddress || ""}</div>
                 </div>
               </div>
 
-              <div className="cod-qr-row">
-                <div className="cod-section">
+              <div className="cod-weight-row">
+                <div className="cod-box">
                   <div className="cod-label">COD Amount</div>
-                  <div className="cod-value" data-testid="text-label-cod-amount">{formatTaka(codAmount)}</div>
+                  <div className="cod-amount" data-testid="text-label-cod-amount">{formatTaka(codAmount)}</div>
                 </div>
-                {sale.consignmentId && (
-                  <div className="qr-section">
-                    <QRCodeSVG value={sale.consignmentId} size={52} level="M" />
-                  </div>
-                )}
+                <div className="weight-box">
+                  <div className="weight-label">Weight</div>
+                  <div className="weight-value">{weight > 0 ? `${weight.toFixed(2)} KG` : "—"}</div>
+                </div>
               </div>
 
-              <div className="footer-row">
-                <span>Consignment: <strong>{parcelId}</strong></span>
-                <span>Items: <strong>{sale.items.length}</strong></span>
-                {(sale.totalWeight ?? 0) > 0 && (
-                  <span>Weight: <strong>{(sale.totalWeight ?? 0).toFixed(2)} KG</strong></span>
-                )}
+              {sale.consignmentId && (
+                <div className="codes-row">
+                  <div className="qr-box">
+                    <QRCodeSVG value={sale.consignmentId} size={56} level="M" />
+                  </div>
+                  <div className="barcode-box">
+                    <BarcodeComponent value={sale.consignmentId} />
+                  </div>
+                </div>
+              )}
+
+              <div className="label-footer">
+                Powered by CPSBD Business (FB Page)
               </div>
             </div>
           </div>

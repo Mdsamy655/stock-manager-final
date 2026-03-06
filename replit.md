@@ -97,4 +97,5 @@ A professional inventory management system built with Node.js, Express, React, a
 - AUTH IS TEMPORARILY DISABLED — to re-enable, restore original authMiddleware in server/auth.ts, re-add AuthProvider/AuthenticatedApp in App.tsx
 - tsx binary symlink breaks after every npm install. Fix: `ln -sf ../tsx/dist/cli.mjs node_modules/.bin/tsx && chmod +x node_modules/.bin/tsx`
 - Never install html2pdf.js — use html2canvas+jspdf instead
+- Courier labels use JsBarcode (CODE128) for barcodes and qrcode.react for QR codes
 - All devDependencies were moved to dependencies to work with NODE_ENV=production in the Replit environment
