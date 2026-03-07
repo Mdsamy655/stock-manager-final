@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Printer, Download, FileText } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
@@ -39,10 +40,40 @@ interface InvoiceModalProps {
 export default function InvoiceModal({ sale, open, onOpenChange }: InvoiceModalProps) {
   const [companyName, setCompanyName] = useState(() => localStorage.getItem("invoice_company_name") || "My Business");
   const [companyAddress, setCompanyAddress] = useState(() => localStorage.getItem("invoice_company_address") || "");
-  const [deliveryCharge, setDeliveryCharge] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
   const invoiceRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  const productSubtotal = sale.items.reduce((sum, item) => sum + item.totalPrice, 0);
+
+  const saleDeliveryCharge = sale.deliveryCharge ?? 0;
+  const defaultCodCharge = Math.round(productSubtotal * 0.01);
+
+  const [addDelivery, setAddDelivery] = useState(false);
+  const [addPacking, setAddPacking] = useState(false);
+  const [addCod, setAddCod] = useState(false);
+  const [deliveryChargeVal, setDeliveryChargeVal] = useState<string>(String(saleDeliveryCharge || 0));
+  const [packingChargeVal, setPackingChargeVal] = useState<string>("0");
+  const [codChargeVal, setCodChargeVal] = useState<string>(String(defaultCodCharge));
+
+  useEffect(() => {
+    if (open) {
+      setAddDelivery(false);
+      setAddPacking(false);
+      setAddCod(false);
+      setDeliveryChargeVal(String(saleDeliveryCharge || 0));
+      setPackingChargeVal("0");
+      setCodChargeVal(String(defaultCodCharge));
+      setShowPreview(false);
+    }
+  }, [open, sale.id]);
+
+  const invoiceDelivery = addDelivery ? (Number(deliveryChargeVal) || 0) : 0;
+  const invoicePacking = addPacking ? (Number(packingChargeVal) || 0) : 0;
+  const invoiceCod = addCod ? (Number(codChargeVal) || 0) : 0;
+  const hasAnyCharge = invoiceDelivery > 0 || invoicePacking > 0 || invoiceCod > 0;
+
+  const grandTotal = productSubtotal + invoiceDelivery + invoicePacking + invoiceCod;
 
   const initialMode = (): PaymentMode => {
     const salePaid = sale.paidAmount ?? sale.totalPrice;
@@ -57,11 +88,6 @@ export default function InvoiceModal({ sale, open, onOpenChange }: InvoiceModalP
     const salePaid = sale.paidAmount ?? sale.totalPrice;
     return salePaid > 0 && salePaid < sale.totalPrice ? String(salePaid) : "";
   });
-
-  const saleCodFee = sale.codFee ?? 0;
-  const saleSubtotal = saleCodFee > 0 ? sale.totalPrice - saleCodFee : sale.totalPrice;
-  const subtotal = sale.totalPrice;
-  const grandTotal = subtotal + deliveryCharge;
 
   const computedPaid = paymentMode === "paid" ? grandTotal : paymentMode === "due" ? 0 : Math.min(Number(partialPaid) || 0, grandTotal);
   const computedDue = grandTotal - computedPaid;
@@ -145,10 +171,6 @@ export default function InvoiceModal({ sale, open, onOpenChange }: InvoiceModalP
   };
 
   const handleClose = (v: boolean) => {
-    if (!v) {
-      setShowPreview(false);
-      setDeliveryCharge(0);
-    }
     onOpenChange(v);
   };
 
@@ -182,19 +204,89 @@ export default function InvoiceModal({ sale, open, onOpenChange }: InvoiceModalP
                 data-testid="input-company-address"
               />
             </div>
-            <div>
-              <Label className="text-sm">Delivery Charge (optional)</Label>
-              <Input
-                type="number"
-                min="0"
-                value={deliveryCharge || ""}
-                onChange={(e) => setDeliveryCharge(Number(e.target.value) || 0)}
-                placeholder="0"
-                data-testid="input-delivery-charge"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Added to invoice total only. Does not affect profit or stock.
+
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Optional Charges (invoice only)</Label>
+              <p className="text-xs text-muted-foreground -mt-2">
+                These charges appear on the invoice only. They do not affect profit or stock.
               </p>
+
+              <div className="space-y-3 rounded-md border p-3">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="add-delivery"
+                    checked={addDelivery}
+                    onCheckedChange={(v) => setAddDelivery(v === true)}
+                    data-testid="checkbox-delivery-charge"
+                  />
+                  <div className="flex-1 space-y-1">
+                    <label htmlFor="add-delivery" className="text-sm cursor-pointer font-medium leading-none">
+                      Add Delivery Charge
+                    </label>
+                    {addDelivery && (
+                      <Input
+                        type="number"
+                        min="0"
+                        value={deliveryChargeVal}
+                        onChange={(e) => setDeliveryChargeVal(e.target.value)}
+                        placeholder="0"
+                        className="mt-1.5 h-8 w-40"
+                        data-testid="input-delivery-charge"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="add-packing"
+                    checked={addPacking}
+                    onCheckedChange={(v) => setAddPacking(v === true)}
+                    data-testid="checkbox-packing-charge"
+                  />
+                  <div className="flex-1 space-y-1">
+                    <label htmlFor="add-packing" className="text-sm cursor-pointer font-medium leading-none">
+                      Add Packing Charge
+                    </label>
+                    {addPacking && (
+                      <Input
+                        type="number"
+                        min="0"
+                        value={packingChargeVal}
+                        onChange={(e) => setPackingChargeVal(e.target.value)}
+                        placeholder="0"
+                        className="mt-1.5 h-8 w-40"
+                        data-testid="input-packing-charge"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="add-cod"
+                    checked={addCod}
+                    onCheckedChange={(v) => setAddCod(v === true)}
+                    data-testid="checkbox-cod-charge"
+                  />
+                  <div className="flex-1 space-y-1">
+                    <label htmlFor="add-cod" className="text-sm cursor-pointer font-medium leading-none">
+                      Add COD Charge (1%)
+                    </label>
+                    {addCod && (
+                      <Input
+                        type="number"
+                        min="0"
+                        value={codChargeVal}
+                        onChange={(e) => setCodChargeVal(e.target.value)}
+                        placeholder="0"
+                        className="mt-1.5 h-8 w-40"
+                        data-testid="input-cod-charge"
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -243,13 +335,25 @@ export default function InvoiceModal({ sale, open, onOpenChange }: InvoiceModalP
 
             <div className="rounded-md bg-muted p-3 text-sm space-y-1">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Subtotal:</span>
-                <span>{formatTaka(subtotal)}</span>
+                <span className="text-muted-foreground">Product Total:</span>
+                <span>{formatTaka(productSubtotal)}</span>
               </div>
-              {deliveryCharge > 0 && (
+              {addDelivery && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Delivery Charge:</span>
-                  <span>{formatTaka(deliveryCharge)}</span>
+                  <span>{formatTaka(invoiceDelivery)}</span>
+                </div>
+              )}
+              {addPacking && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Packing Charge:</span>
+                  <span>{formatTaka(invoicePacking)}</span>
+                </div>
+              )}
+              {addCod && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">COD Charge:</span>
+                  <span>{formatTaka(invoiceCod)}</span>
                 </div>
               )}
               <div className="flex justify-between border-t pt-1">
@@ -355,26 +459,26 @@ export default function InvoiceModal({ sale, open, onOpenChange }: InvoiceModalP
                   )}
                   <div style={{ display: "flex", justifyContent: "flex-end" }}>
                     <div style={{ width: "240px" }}>
-                      {saleCodFee > 0 && (
-                        <>
-                          <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
-                            <span style={{ color: "#666" }}>Items Total:</span>
-                            <span>{formatTaka(saleSubtotal)}</span>
-                          </div>
-                          <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
-                            <span style={{ color: "#666" }}>COD Fee (1%):</span>
-                            <span data-testid="text-invoice-cod-fee">{formatTaka(saleCodFee)}</span>
-                          </div>
-                        </>
-                      )}
                       <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
-                        <span style={{ color: "#666" }}>Subtotal:</span>
-                        <span data-testid="text-invoice-subtotal">{formatTaka(subtotal)}</span>
+                        <span style={{ color: "#666" }}>Product Total:</span>
+                        <span data-testid="text-invoice-subtotal">{formatTaka(productSubtotal)}</span>
                       </div>
-                      {deliveryCharge > 0 && (
+                      {addDelivery && (
                         <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
                           <span style={{ color: "#666" }}>Delivery Charge:</span>
-                          <span data-testid="text-invoice-delivery">{formatTaka(deliveryCharge)}</span>
+                          <span data-testid="text-invoice-delivery">{formatTaka(invoiceDelivery)}</span>
+                        </div>
+                      )}
+                      {addPacking && (
+                        <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
+                          <span style={{ color: "#666" }}>Packing Charge:</span>
+                          <span data-testid="text-invoice-packing">{formatTaka(invoicePacking)}</span>
+                        </div>
+                      )}
+                      {addCod && (
+                        <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
+                          <span style={{ color: "#666" }}>COD Charge:</span>
+                          <span data-testid="text-invoice-cod">{formatTaka(invoiceCod)}</span>
                         </div>
                       )}
                       <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0 4px", borderTop: "1px solid #e5e7eb", fontWeight: "bold", fontSize: "15px" }}>
