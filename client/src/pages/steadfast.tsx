@@ -628,17 +628,6 @@ export default function Steadfast() {
                           <Printer className="h-4 w-4 mr-1" />
                           Label
                         </Button>
-                        {sale.consignmentId && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setCourierBarcodePrintIds([sale.consignmentId!])}
-                            data-testid={`button-print-barcode-${sale.id}`}
-                          >
-                            <Printer className="h-4 w-4 mr-1" />
-                            Barcode
-                          </Button>
-                        )}
                         <Button
                           size="sm"
                           variant="outline"
