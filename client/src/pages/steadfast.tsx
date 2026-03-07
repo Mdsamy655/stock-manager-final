@@ -39,6 +39,7 @@ import { Truck, Send, RefreshCw, Package, CheckCircle, XCircle, Clock, Settings,
 import type { SaleWithItems } from "@shared/schema";
 import CourierLabel from "@/components/courier-label";
 import BulkLabelPrint from "@/components/bulk-label-print";
+import { CourierBarcodePrintDialog } from "@/components/courier-barcode-print";
 
 const AUTO_REFRESH_INTERVAL = 30 * 60 * 1000;
 
@@ -91,6 +92,7 @@ export default function Steadfast() {
   const [labelSale, setLabelSale] = useState<SaleWithItems | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkPrintSales, setBulkPrintSales] = useState<SaleWithItems[] | null>(null);
+  const [courierBarcodePrintIds, setCourierBarcodePrintIds] = useState<string[] | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [bulkStatusTarget, setBulkStatusTarget] = useState<string | null>(null);
   const autoRefreshTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -499,6 +501,21 @@ export default function Steadfast() {
                       <Printer className="h-4 w-4 mr-1" />
                       Print ({selectedIds.size})
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const cids = courierSales
+                          .filter(s => selectedIds.has(s.id) && s.consignmentId)
+                          .map(s => s.consignmentId!);
+                        if (cids.length === 0) return;
+                        setCourierBarcodePrintIds(cids);
+                      }}
+                      data-testid="button-print-barcode-selected"
+                    >
+                      <Printer className="h-4 w-4 mr-1" />
+                      Print Barcode ({selectedIds.size})
+                    </Button>
                   </>
                 )}
                 <Button
@@ -611,6 +628,17 @@ export default function Steadfast() {
                           <Printer className="h-4 w-4 mr-1" />
                           Label
                         </Button>
+                        {sale.consignmentId && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setCourierBarcodePrintIds([sale.consignmentId!])}
+                            data-testid={`button-print-barcode-${sale.id}`}
+                          >
+                            <Printer className="h-4 w-4 mr-1" />
+                            Barcode
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"
@@ -677,6 +705,14 @@ export default function Steadfast() {
         <BulkLabelPrint
           sales={bulkPrintSales}
           onClose={() => setBulkPrintSales(null)}
+        />
+      )}
+
+      {courierBarcodePrintIds && courierBarcodePrintIds.length > 0 && (
+        <CourierBarcodePrintDialog
+          consignmentIds={courierBarcodePrintIds}
+          open={true}
+          onOpenChange={(v) => { if (!v) setCourierBarcodePrintIds(null); }}
         />
       )}
     </div>

@@ -1,0 +1,171 @@
+Add a new feature called **"Courier Barcode Label Printing"** without modifying, removing, or breaking any existing functionality in the system.
+
+IMPORTANT RULE:
+Do NOT modify or remove any existing features, layouts, print systems, courier label systems, or barcode systems.  
+Only ADD a new printing option.
+
+The current system already has:
+- Courier orders table
+- A4 courier label printing
+- Barcode printing for products
+
+All of those must remain completely unchanged.
+
+--------------------------------------------------
+
+NEW FEATURE: Courier Barcode Label Printing
+
+This feature will allow printing small barcode labels for courier parcels using a thermal label printer.
+
+The label will contain only:
+- Optional top text
+- Consignment ID
+- Barcode generated from the Consignment ID
+
+--------------------------------------------------
+
+1. Location of the Feature
+
+In the **Courier Orders section**, there are already buttons:
+
+- Bulk Set Status
+- Check Status
+- Print
+- Refresh All
+
+Add a new button next to them called:
+
+**Print Barcode**
+
+Do NOT modify the existing buttons.
+
+--------------------------------------------------
+
+2. Print Behavior
+
+The feature must support:
+
+• Single Print  
+• Bulk Print (using selected rows)
+
+If multiple orders are selected, the system must generate labels for each selected order.
+
+Each order will produce one barcode label.
+
+--------------------------------------------------
+
+3. Popup Window
+
+When clicking **Print Barcode**, open a popup with the following fields:
+
+Title:
+Courier Barcode Label Printing
+
+Fields:
+
+Top Text (Optional)
+Example placeholder:
+Company Name / Merchant ID / Customer Name
+
+Print Mode
+- Single
+- Bulk (Selected Orders)
+
+Print Quantity
+Default value: 1
+
+Print Button:
+Print Labels
+
+--------------------------------------------------
+
+4. Barcode Label Layout
+
+Each label must contain:
+
+Optional Top Text (if provided)
+
+Consignment ID
+Example:
+227446972
+
+Barcode generated from the Consignment ID
+
+Do NOT add extra information.
+
+--------------------------------------------------
+
+5. Label Printer Size
+
+The label must be optimized for thermal label printers.
+
+Page size must be:
+
+50mm × 30mm
+
+CSS:
+
+@page {
+  size: 50mm 30mm;
+  margin: 0;
+}
+
+body {
+  margin: 0;
+}
+
+.label {
+  width: 50mm;
+  height: 30mm;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  page-break-after: always;
+}
+
+--------------------------------------------------
+
+6. Bulk Printing Logic
+
+If multiple courier orders are selected:
+
+Example:
+
+Order 1 → Consignment ID 227446972  
+Order 2 → Consignment ID 227446973  
+Order 3 → Consignment ID 227446974  
+
+The system must generate one label per order.
+
+Each label must print on a separate page using:
+
+page-break-after: always;
+
+--------------------------------------------------
+
+7. Barcode Generation
+
+The barcode must be generated from:
+
+Consignment ID
+
+Use the same barcode generation method already used in the system to maintain consistency.
+
+--------------------------------------------------
+
+8. Important Safety Requirement
+
+The following must NOT be modified:
+
+• Existing courier label printing  
+• Existing A4 print system  
+• Existing barcode system  
+• Existing UI components  
+• Existing database structure  
+
+This feature must ONLY ADD a new button and a new print mode.
+
+--------------------------------------------------
+
+END OF FEATURE
