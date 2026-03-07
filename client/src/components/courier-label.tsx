@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Printer, Download } from "lucide-react";
+import { Printer, Download, Save } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { renderToStaticMarkup } from "react-dom/server";
 import JsBarcode from "jsbarcode";
@@ -233,11 +233,18 @@ export default function CourierLabel({
     () => localStorage.getItem("label_company_address") || "",
   );
 
+  const [saveMessage, setSaveMessage] = useState("");
+
   const saveSenderInfo = () => {
-    if (companyName) localStorage.setItem("label_company_name", companyName);
-    if (companyPhone) localStorage.setItem("label_company_phone", companyPhone);
-    if (companyAddress)
-      localStorage.setItem("label_company_address", companyAddress);
+    localStorage.setItem("label_company_name", companyName);
+    localStorage.setItem("label_company_phone", companyPhone);
+    localStorage.setItem("label_company_address", companyAddress);
+  };
+
+  const handleSaveSenderInfo = () => {
+    saveSenderInfo();
+    setSaveMessage("Sender info saved");
+    setTimeout(() => setSaveMessage(""), 2000);
   };
 
   const codAmount =
@@ -411,7 +418,18 @@ export default function CourierLabel({
           </div>
         </div>
 
-        <div className="flex gap-2 justify-end mb-3">
+        <div className="flex gap-2 justify-end mb-3 items-center">
+          {saveMessage && (
+            <span className="text-sm text-green-600 font-medium mr-auto" data-testid="text-save-confirmation">{saveMessage}</span>
+          )}
+          <Button
+            variant="secondary"
+            onClick={handleSaveSenderInfo}
+            data-testid="button-save-sender-info"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            Save
+          </Button>
           <Button
             variant="outline"
             onClick={handlePrint}
