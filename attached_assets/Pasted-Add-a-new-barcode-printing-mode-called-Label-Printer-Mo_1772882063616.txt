@@ -1,0 +1,117 @@
+Add a new barcode printing mode called "Label Printer Mode" without modifying or breaking the existing A4 barcode printing system.
+
+The system must support two print modes:
+
+1. A4 Page Mode (Existing System)
+2. Label Printer Mode (New Feature)
+
+The existing A4 print layout must remain completely unchanged.
+
+---
+
+1. Print Mode Selection
+
+Add a new option in the barcode print popup:
+
+Print Mode:
+
+- A4 Page Mode (default)
+- Label Printer Mode
+
+By default the system should use A4 Page Mode so the current behavior stays the same.
+
+---
+
+2. Label Printer Mode Layout
+
+When Label Printer Mode is selected:
+
+- The page size must be exactly 50mm × 30mm
+- Each page must contain only one barcode label
+- The label should fill the printable area properly.
+
+Use the following CSS for label printing:
+
+@page {
+  size: 50mm 30mm;
+  margin: 0;
+}
+
+body {
+  margin: 0;
+}
+
+.label {
+  width: 50mm;
+  height: 30mm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  page-break-after: always;
+}
+
+---
+
+3. Print Quantity Option
+
+Add a new input field in the popup:
+
+Print Quantity
+
+Example:
+
+Print Quantity: [ 1 ]
+
+Behavior:
+
+- If quantity = 1 → print 1 label
+- If quantity = 5 → generate 5 labels
+- If quantity = 10 → generate 10 labels
+
+Each label must be printed on a separate page using:
+
+page-break-after: always;
+
+---
+
+4. Barcode Layout
+
+Do NOT change the existing barcode design.
+
+The same layout should still be used:
+
+- Barcode
+- Product Code
+- Product Name
+- Sale Price
+- Optional Shop / Brand Name
+
+The new mode should only change the page size and printing behavior, not the barcode structure.
+
+---
+
+5. Bulk Printing Logic
+
+If the user enters a quantity greater than 1:
+
+The system should generate multiple label blocks like this:
+
+Label
+Label
+Label
+Label
+Label
+
+Each label must automatically move to the next page.
+
+---
+
+6. Important Requirement
+
+The new feature must NOT modify or break:
+
+- Existing A4 barcode printing
+- Existing barcode design
+- Existing label popup options
+
+It must only add a new print mode called "Label Printer Mode" that prints labels using 50mm × 30mm label size.
