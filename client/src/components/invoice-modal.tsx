@@ -47,23 +47,25 @@ export default function InvoiceModal({ sale, open, onOpenChange }: InvoiceModalP
   const productSubtotal = sale.items.reduce((sum, item) => sum + item.totalPrice, 0);
 
   const saleDeliveryCharge = sale.deliveryCharge ?? 0;
-  const defaultCodCharge = Math.round(productSubtotal * 0.01);
+  const saleCodFee = sale.codFee ?? 0;
+  const saleWeight = sale.totalWeight ?? 0;
+  const salePackingCharge = saleWeight > 0 ? (saleWeight > 5 ? 15 : 10) : 0;
 
-  const [addDelivery, setAddDelivery] = useState(false);
-  const [addPacking, setAddPacking] = useState(false);
-  const [addCod, setAddCod] = useState(false);
-  const [deliveryChargeVal, setDeliveryChargeVal] = useState<string>(String(saleDeliveryCharge || 0));
-  const [packingChargeVal, setPackingChargeVal] = useState<string>("0");
-  const [codChargeVal, setCodChargeVal] = useState<string>(String(defaultCodCharge));
+  const [addDelivery, setAddDelivery] = useState(true);
+  const [addPacking, setAddPacking] = useState(true);
+  const [addCod, setAddCod] = useState(true);
+  const [deliveryChargeVal, setDeliveryChargeVal] = useState<string>(String(saleDeliveryCharge));
+  const [packingChargeVal, setPackingChargeVal] = useState<string>(String(salePackingCharge));
+  const [codChargeVal, setCodChargeVal] = useState<string>(String(saleCodFee));
 
   useEffect(() => {
     if (open) {
-      setAddDelivery(false);
-      setAddPacking(false);
-      setAddCod(false);
-      setDeliveryChargeVal(String(saleDeliveryCharge || 0));
-      setPackingChargeVal("0");
-      setCodChargeVal(String(defaultCodCharge));
+      setAddDelivery(true);
+      setAddPacking(true);
+      setAddCod(true);
+      setDeliveryChargeVal(String(saleDeliveryCharge));
+      setPackingChargeVal(String(salePackingCharge));
+      setCodChargeVal(String(saleCodFee));
       setShowPreview(false);
     }
   }, [open, sale.id]);
@@ -71,7 +73,6 @@ export default function InvoiceModal({ sale, open, onOpenChange }: InvoiceModalP
   const invoiceDelivery = addDelivery ? (Number(deliveryChargeVal) || 0) : 0;
   const invoicePacking = addPacking ? (Number(packingChargeVal) || 0) : 0;
   const invoiceCod = addCod ? (Number(codChargeVal) || 0) : 0;
-  const hasAnyCharge = invoiceDelivery > 0 || invoicePacking > 0 || invoiceCod > 0;
 
   const grandTotal = productSubtotal + invoiceDelivery + invoicePacking + invoiceCod;
 
