@@ -53,8 +53,8 @@ const LABEL_STYLES = `
     height: 30mm;
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
     align-items: center;
-    justify-content: center;
     padding: 1.5mm 2mm;
     overflow: hidden;
     page-break-after: always;
@@ -65,7 +65,6 @@ const LABEL_STYLES = `
     text-transform: uppercase;
     letter-spacing: 0.8px;
     color: #333;
-    margin-bottom: 1mm;
     text-align: center;
     width: 100%;
     white-space: nowrap;
@@ -73,18 +72,19 @@ const LABEL_STYLES = `
     text-overflow: ellipsis;
   }
   .consignment-id {
-    font-size: 9px;
-    font-weight: 700;
+    font-size: 20px;
+    font-weight: bold;
     color: #111;
     text-align: center;
-    margin-bottom: 1mm;
-    letter-spacing: 0.5px;
+    letter-spacing: 2px;
   }
-  .barcode-container {
-    width: 90%;
-    text-align: center;
+  .barcode-section {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
   }
-  .barcode-container svg {
+  .barcode-section svg {
     max-width: 100%;
     height: 14mm;
   }
@@ -101,7 +101,7 @@ function buildLabelHtml(consignmentId: string, topText: string): string {
 
   const barcodeSvg = generateBarcodeSvgString(consignmentId, 40, 1.8);
   if (barcodeSvg) {
-    parts.push(`<div class="barcode-container">${barcodeSvg}</div>`);
+    parts.push(`<div class="barcode-section">${barcodeSvg}</div>`);
   }
 
   return `<div class="label">${parts.join("")}</div>`;
