@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Printer } from "lucide-react";
 import JsBarcode from "jsbarcode";
 import type { Product } from "@shared/schema";
@@ -47,8 +46,6 @@ interface PrintOptions {
   showShopName: boolean;
   shopName: string;
 }
-
-type PrintMode = "a4" | "label";
 
 const A4_LABEL_STYLES = `
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -131,78 +128,6 @@ const A4_LABEL_STYLES = `
   }
 `;
 
-const LABEL_PRINTER_STYLES = `
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  @page {
-    size: 50mm 30mm;
-    margin: 0;
-  }
-  body {
-    font-family: Arial, Helvetica, sans-serif;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-    margin: 0;
-  }
-  .label {
-    width: 50mm;
-    height: 30mm;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 1.5mm 2mm;
-    overflow: hidden;
-    page-break-after: always;
-  }
-  .shop-name {
-    font-size: 7px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    color: #333;
-    margin-bottom: 1mm;
-    text-align: center;
-    width: 100%;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .barcode-container {
-    width: 90%;
-    text-align: center;
-    margin-bottom: 1mm;
-  }
-  .barcode-container svg {
-    max-width: 100%;
-    height: 12mm;
-  }
-  .product-code {
-    font-size: 8px;
-    font-weight: 700;
-    color: #111;
-    text-align: center;
-    margin-bottom: 0.3mm;
-    letter-spacing: 0.5px;
-  }
-  .product-name {
-    font-size: 7px;
-    font-weight: 600;
-    color: #333;
-    text-align: center;
-    width: 100%;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin-bottom: 0.3mm;
-  }
-  .sale-price {
-    font-size: 9px;
-    font-weight: 800;
-    color: #000;
-    text-align: center;
-  }
-`;
-
 function buildLabelHtml(product: Product, options: PrintOptions): string {
   const parts: string[] = [];
 
@@ -248,29 +173,6 @@ function printLabelsA4(products: Product[], options: PrintOptions) {
   }
 }
 
-function printLabelsLabelPrinter(products: Product[], options: PrintOptions, quantity: number) {
-  const labelsHtml: string[] = [];
-  for (const product of products) {
-    const labelHtml = buildLabelHtml(product, options);
-    for (let i = 0; i < quantity; i++) {
-      labelsHtml.push(labelHtml);
-    }
-  }
-
-  const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Product Barcode Labels</title>
-<style>${LABEL_PRINTER_STYLES}</style></head>
-<body>${labelsHtml.join("")}
-<script>window.onload=function(){window.print();}<\/script>
-</body></html>`;
-
-  const win = window.open("", "_blank");
-  if (win) {
-    win.document.write(html);
-    win.document.close();
-  }
-}
-
 interface ProductBarcodePrintDialogProps {
   products: Product[];
   open: boolean;
@@ -286,15 +188,9 @@ export function ProductBarcodePrintDialog({ products, open, onOpenChange }: Prod
     showShopName: false,
     shopName: "",
   });
-  const [printMode, setPrintMode] = useState<PrintMode>("a4");
-  const [printQuantity, setPrintQuantity] = useState<number>(1);
 
   const handlePrint = () => {
-    if (printMode === "label") {
-      printLabelsLabelPrinter(products, options, Math.max(1, printQuantity));
-    } else {
-      printLabelsA4(products, options);
-    }
+    printLabelsA4(products, options);
     onOpenChange(false);
   };
 
@@ -307,43 +203,6 @@ export function ProductBarcodePrintDialog({ products, open, onOpenChange }: Prod
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Print Mode</Label>
-            <RadioGroup
-              value={printMode}
-              onValueChange={(v) => setPrintMode(v as PrintMode)}
-              className="flex flex-col gap-2"
-              data-testid="radio-print-mode"
-            >
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="a4" id="mode-a4" data-testid="radio-a4-mode" />
-                <label htmlFor="mode-a4" className="text-sm cursor-pointer">A4 Page Mode</label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="label" id="mode-label" data-testid="radio-label-mode" />
-                <label htmlFor="mode-label" className="text-sm cursor-pointer">Label Printer Mode (50mm × 30mm)</label>
-              </div>
-            </RadioGroup>
-          </div>
-
-          {printMode === "label" && (
-            <div className="space-y-1">
-              <Label className="text-sm" htmlFor="print-quantity">Print Quantity (per product)</Label>
-              <Input
-                id="print-quantity"
-                type="number"
-                min="1"
-                value={printQuantity}
-                onChange={(e) => setPrintQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-32"
-                data-testid="input-print-quantity"
-              />
-              <p className="text-xs text-muted-foreground">
-                Each label prints on a separate 50×30mm page
-              </p>
-            </div>
-          )}
-
           <div className="space-y-3">
             <div className="flex items-center space-x-2">
               <Checkbox
