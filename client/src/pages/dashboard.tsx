@@ -149,9 +149,10 @@ export default function Dashboard() {
         ) : null}
       </div>
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {isLoading ? (
           <>
+            <StatSkeleton />
             <StatSkeleton />
             <StatSkeleton />
             <StatSkeleton />
@@ -160,7 +161,7 @@ export default function Dashboard() {
           <>
             <Card data-testid="card-total-profit">
               <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Profit</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Gross Profit</CardTitle>
                 <BarChart3 className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -182,6 +183,21 @@ export default function Dashboard() {
               description="All expenses (courier + other)"
               testId="card-total-expenses"
             />
+            <Card data-testid="card-net-profit">
+              <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Net Profit</CardTitle>
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div
+                  className={`text-2xl font-bold ${(stats.totalProfit - stats.totalExpenses) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
+                  data-testid="card-net-profit-value"
+                >
+                  {formatTaka(stats.totalProfit - stats.totalExpenses)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Gross profit minus all expenses</p>
+              </CardContent>
+            </Card>
             <StatCard
               title="Total In Stock"
               value={stats.totalProducts.toString()}

@@ -1,0 +1,88 @@
+Enhance and complete this inventory system carefully WITHOUT breaking or changing any existing logic.
+
+-----------------------------------
+🚫 STRICT RULES (VERY IMPORTANT)
+-----------------------------------
+- DO NOT change any existing business logic
+- DO NOT modify any calculations (profit, expenses, stock, etc.)
+- DO NOT change formulas or data flow
+- DO NOT break or rewrite existing working features
+- DO NOT redesign the entire UI
+- ONLY make safe, minimal, non-breaking improvements
+
+-----------------------------------
+🔧 BACKEND & FUNCTIONAL FIXES
+-----------------------------------
+
+1. Fix missing API routes:
+- Add GET /api/products/:id (return single product)
+- Add PATCH /api/expenses/:id (edit expense)
+- Add PATCH /api/sales/:id/courier-status (update courier status manually)
+
+2. Connect existing UI properly:
+- Ensure courier status dropdown actually updates database
+- Ensure all UI actions persist after page refresh
+
+3. Improve partial payment flow:
+- Allow sales without forcing customer save
+- Only require customer if user chooses to save due
+- Keep existing logic intact, just make it more flexible
+
+-----------------------------------
+📊 DASHBOARD IMPROVEMENTS (NO LOGIC CHANGE)
+-----------------------------------
+
+4. Fix labeling:
+- Rename "Total Profit" → "Gross Profit"
+- Add new card: "Net Profit" = Gross Profit - Total Expenses
+
+5. Add missing card:
+- Add "Total Expenses" (include all expenses)
+
+IMPORTANT:
+- Do NOT change how values are calculated
+- Only display correct values using existing data
+
+-----------------------------------
+💱 CURRENCY FIX (DISPLAY ONLY)
+-----------------------------------
+
+6. Make currency format consistent everywhere:
+- Format: ৳1,250.00
+- Use Bangladeshi format (en-BD)
+- Ensure 2 decimal places everywhere
+
+DO NOT change any stored values — only formatting
+
+-----------------------------------
+📱 MOBILE RESPONSIVE UI
+-----------------------------------
+
+7. Make UI fully mobile friendly:
+- Cards stack vertically on small screens
+- Sidebar becomes hamburger menu
+- Tables scroll horizontally
+- Buttons large and touch-friendly
+- Clean spacing and readable fonts
+
+-----------------------------------
+📲 PWA (APP INSTALL FEATURE)
+-----------------------------------
+
+8. Convert to Progressive Web App:
+- Add manifest.json (name, icon, theme)
+- Add service worker
+- Enable "Add to Home Screen"
+- App opens like a mobile app (standalone mode)
+
+-----------------------------------
+🎯 FINAL GOAL
+-----------------------------------
+
+- System becomes complete and stable
+- Works perfectly on mobile
+- Can be installed as an app
+- All missing features fixed
+- NO existing functionality is broken
+
+If any change risks breaking current behavior, DO NOT implement it — just report.
