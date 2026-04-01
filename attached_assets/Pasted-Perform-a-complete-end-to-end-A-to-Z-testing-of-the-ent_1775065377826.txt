@@ -1,0 +1,106 @@
+Perform a complete end-to-end (A to Z) testing of the entire inventory system.
+
+Test everything like a real business user in a real scenario.
+
+-----------------------------------
+🔍 1. DASHBOARD TEST
+-----------------------------------
+- Check all cards:
+  - Total Sales
+  - Total Profit
+  - Total Expenses
+  - Current Stock Value
+  - Total Investment
+  - Cash in Hand
+  - Working Capital
+- Verify all numbers are correct and updating properly after actions.
+- Check today's summary and monthly summary values.
+- Ensure no card shows wrong or static data.
+
+-----------------------------------
+📦 2. PRODUCTS TEST
+-----------------------------------
+- Add multiple products with:
+  - name, cost price, sale price, stock
+- Edit product and verify updates reflect everywhere.
+- Delete product and ensure it's removed properly.
+- Check:
+  - Total Investment = cost × stock
+  - Stock count accuracy
+
+-----------------------------------
+💰 3. SALES TEST
+-----------------------------------
+- Create multiple sales with different quantities.
+- Verify:
+  - Stock decreases correctly
+  - Total sales updates
+  - Profit calculation:
+    profit = (sale_price - cost_price) × quantity
+- Test edge cases:
+  - Selling more than available stock (should prevent or warn)
+
+-----------------------------------
+💸 4. EXPENSE TEST
+-----------------------------------
+- Add multiple expenses
+- Check:
+  - Total Expenses updates
+  - Dashboard reflects changes instantly
+
+-----------------------------------
+📊 5. PROFIT & CALCULATION TEST
+-----------------------------------
+- Verify:
+  - Total Profit = sum of all sales profit
+  - Net Profit = profit - expenses
+- Check if profit updates after each sale
+
+-----------------------------------
+📅 6. DAILY & MONTHLY SUMMARY
+-----------------------------------
+- Verify:
+  - Today’s sales and profit
+  - Monthly sales and profit
+- Ensure correct filtering by date
+
+-----------------------------------
+⚠️ 7. LOW STOCK ALERT
+-----------------------------------
+- Reduce stock below 5
+- Check:
+  - Warning appears
+  - Correct product count shown
+
+-----------------------------------
+💱 8. CURRENCY TEST
+-----------------------------------
+- Ensure ALL values show in Bangladeshi Taka (৳)
+- Format should be consistent (e.g., ৳1,250.00)
+
+-----------------------------------
+🧪 9. DATA CONSISTENCY TEST
+-----------------------------------
+- Refresh page
+- Restart app
+- Ensure all data persists correctly (no loss)
+
+-----------------------------------
+🚫 IMPORTANT RULES
+-----------------------------------
+- DO NOT change, fix, or modify any code
+- DO NOT rebuild UI
+- DO NOT add new features
+- ONLY test and report issues
+
+-----------------------------------
+📋 OUTPUT FORMAT
+-----------------------------------
+Provide a clear report:
+
+1. Working correctly ✅
+2. Issues found ❌ (with explanation)
+3. Missing or incorrect calculations ⚠️
+4. UI or data problems 🧩
+
+Be very detailed and precise.
