@@ -73,16 +73,13 @@ function AuthenticatedApp() {
       <div className="flex h-screen w-full">
         <AppSidebar />
         <div className="flex flex-col flex-1 min-w-0">
-          <header className="flex items-center gap-2 px-3 py-2 border-b bg-card shadow-sm sticky top-0 z-10">
-            <SidebarTrigger data-testid="button-sidebar-toggle" className="h-9 w-9 shrink-0" />
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
-                <span className="text-xs font-bold text-primary-foreground">IP</span>
-              </div>
-              <span className="text-sm font-semibold truncate">InventoryPro</span>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <span className="text-xs text-muted-foreground hidden sm:inline max-w-28 truncate" data-testid="text-user-name">
+          <header className="flex items-center gap-2 p-3 border-b bg-background sticky top-0 z-10">
+            <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <span className="text-sm font-medium text-muted-foreground">
+              InventoryPro
+            </span>
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-xs text-muted-foreground hidden sm:inline" data-testid="text-user-name">
                 {user.name}
               </span>
               <Button
@@ -90,10 +87,9 @@ function AuthenticatedApp() {
                 size="sm"
                 onClick={logout}
                 data-testid="button-logout"
-                className="h-9 px-2.5 gap-1.5"
               >
-                <LogOut className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline text-xs">Logout</span>
+                <LogOut className="h-4 w-4 mr-1" />
+                Logout
               </Button>
             </div>
           </header>
