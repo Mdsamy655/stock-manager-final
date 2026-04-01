@@ -65,7 +65,7 @@ const stockAdjustSchema = z.object({
 type StockAdjustValues = z.infer<typeof stockAdjustSchema>;
 
 function formatTaka(amount: number): string {
-  return `৳${amount.toLocaleString("en-BD")}`;
+  return `৳${amount.toLocaleString("en-BD", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export default function Products() {

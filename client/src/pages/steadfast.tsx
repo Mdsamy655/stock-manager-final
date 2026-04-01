@@ -44,7 +44,7 @@ import { CourierBarcodePrintDialog } from "@/components/courier-barcode-print";
 const AUTO_REFRESH_INTERVAL = 30 * 60 * 1000;
 
 function formatTaka(amount: number): string {
-  return `৳${amount.toLocaleString("en-BD")}`;
+  return `৳${amount.toLocaleString("en-BD", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatDate(date: string | Date | null): string {

@@ -17,7 +17,7 @@ import {
 import type { DashboardStats, SaleWithItems } from "@shared/schema";
 
 function formatTaka(amount: number): string {
-  return `৳${amount.toLocaleString("en-BD", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  return `৳${amount.toLocaleString("en-BD", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function StatCard({
@@ -149,9 +149,10 @@ export default function Dashboard() {
         ) : null}
       </div>
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {isLoading ? (
           <>
+            <StatSkeleton />
             <StatSkeleton />
             <StatSkeleton />
           </>
@@ -170,10 +171,17 @@ export default function Dashboard() {
                   {formatTaka(stats.totalProfit)}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {stats.totalProfit >= 0 ? "Net profit after expenses" : "Net loss after expenses"}
+                  {stats.totalProfit >= 0 ? "Gross margin on all sales" : "Gross loss on all sales"}
                 </p>
               </CardContent>
             </Card>
+            <StatCard
+              title="Total Expenses"
+              value={formatTaka(stats.totalExpenses)}
+              icon={Receipt}
+              description="All expenses (courier + other)"
+              testId="card-total-expenses"
+            />
             <StatCard
               title="Total In Stock"
               value={stats.totalProducts.toString()}

@@ -162,6 +162,17 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/products/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const product = await storage.getProduct(id, req.user!.id);
+      if (!product) return res.status(404).json({ message: "Product not found" });
+      res.json(product);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/products", async (req, res) => {
     try {
       const parsed = insertProductSchema.parse(req.body);
@@ -378,6 +389,21 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/sales/:id/courier-status", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { courierStatus, isSentToCourier } = z.object({
+        courierStatus: z.string().min(1, "Courier status is required"),
+        isSentToCourier: z.boolean().optional(),
+      }).parse(req.body);
+      const sale = await storage.updateSaleStatus(id, req.user!.id, courierStatus, isSentToCourier);
+      if (!sale) return res.status(404).json({ message: "Sale not found" });
+      res.json(sale);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   app.delete("/api/sales/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -412,6 +438,18 @@ export async function registerRoutes(
       });
 
       res.status(201).json(expense);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/expenses/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const parsed = insertExpenseSchema.partial().parse(req.body);
+      const expense = await storage.updateExpense(id, req.user!.id, parsed);
+      if (!expense) return res.status(404).json({ message: "Expense not found" });
+      res.json(expense);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }

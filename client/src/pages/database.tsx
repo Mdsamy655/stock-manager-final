@@ -190,7 +190,7 @@ export default function DatabasePage() {
                         {entry.description}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        ৳{(entry.amount ?? 0).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                        ৳{(entry.amount ?? 0).toLocaleString("en-BD", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell className="text-center">
                         <Button

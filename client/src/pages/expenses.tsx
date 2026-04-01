@@ -39,7 +39,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, Trash2, Receipt, Truck, Package } from "lucide-react";
+import { Plus, Trash2, Pencil, Receipt, Truck, Package } from "lucide-react";
 import type { Expense } from "@shared/schema";
 
 const expenseCategories = [
@@ -65,7 +65,7 @@ const expenseFormSchema = z.object({
 type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
 
 function formatTaka(amount: number): string {
-  return `৳${amount.toLocaleString("en-BD")}`;
+  return `৳${amount.toLocaleString("en-BD", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatDate(date: string | Date | null): string {
@@ -90,7 +90,7 @@ const categoryColors: Record<string, string> = {
   Other: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
 };
 
-function ExpenseTable({ expenses, onDelete, isPending }: { expenses: Expense[]; onDelete: (id: number) => void; isPending: boolean }) {
+function ExpenseTable({ expenses, onDelete, onEdit, isPending }: { expenses: Expense[]; onDelete: (id: number) => void; onEdit: (expense: Expense) => void; isPending: boolean }) {
   if (expenses.length === 0) return null;
   return (
     <div className="overflow-x-auto">
@@ -121,6 +121,15 @@ function ExpenseTable({ expenses, onDelete, isPending }: { expenses: Expense[]; 
                 <Button
                   size="icon"
                   variant="ghost"
+                  onClick={() => onEdit(expense)}
+                  disabled={isPending}
+                  data-testid={`button-edit-expense-${expense.id}`}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
                   onClick={() => onDelete(expense.id)}
                   disabled={isPending}
                   data-testid={`button-delete-expense-${expense.id}`}
@@ -138,6 +147,7 @@ function ExpenseTable({ expenses, onDelete, isPending }: { expenses: Expense[]; 
 
 export default function Expenses() {
   const [open, setOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const { toast } = useToast();
 
   const { data: expensesList, isLoading } = useQuery<Expense[]>({
@@ -145,6 +155,11 @@ export default function Expenses() {
   });
 
   const form = useForm<ExpenseFormValues>({
+    resolver: zodResolver(expenseFormSchema),
+    defaultValues: { description: "", amount: 0, category: "", customCategory: "" },
+  });
+
+  const editForm = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseFormSchema),
     defaultValues: { description: "", amount: 0, category: "", customCategory: "" },
   });
@@ -170,6 +185,27 @@ export default function Expenses() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: ExpenseFormValues }) => {
+      const payload = {
+        description: data.description,
+        amount: data.amount,
+        category: data.customCategory?.trim() || data.category,
+      };
+      await apiRequest("PATCH", `/api/expenses/${id}`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      setEditingExpense(null);
+      editForm.reset();
+      toast({ title: "Expense updated successfully" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/expenses/${id}`);
@@ -183,6 +219,16 @@ export default function Expenses() {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     },
   });
+
+  function handleEditOpen(expense: Expense) {
+    setEditingExpense(expense);
+    editForm.reset({
+      description: expense.description,
+      amount: expense.amount,
+      category: expense.category,
+      customCategory: "",
+    });
+  }
 
   const courierExpenses = expensesList?.filter((e) => e.category === "Delivery") ?? [];
   const otherExpenses = expensesList?.filter((e) => e.category !== "Delivery" && e.category !== permanentAssetCategory) ?? [];
@@ -289,6 +335,83 @@ export default function Expenses() {
         </Dialog>
       </div>
 
+      <Dialog open={!!editingExpense} onOpenChange={(open) => { if (!open) setEditingExpense(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Expense</DialogTitle>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit((data) => editingExpense && updateMutation.mutate({ id: editingExpense.id, data }))} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter expense description" {...field} data-testid="input-edit-expense-description" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Amount (৳)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" placeholder="0" {...field} data-testid="input-edit-expense-amount" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-edit-expense-category">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {expenseCategories.map((cat) => (
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ))}
+                        <SelectItem value={permanentAssetCategory}>{permanentAssetCategory}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="customCategory"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Custom Category (optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter custom category" {...field} data-testid="input-edit-expense-custom-category" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full" disabled={updateMutation.isPending} data-testid="button-submit-edit-expense">
+                {updateMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
@@ -342,7 +465,7 @@ export default function Expenses() {
             </CardHeader>
             <CardContent className="p-0">
               {courierExpenses.length > 0 ? (
-                <ExpenseTable expenses={courierExpenses} onDelete={(id) => deleteMutation.mutate(id)} isPending={deleteMutation.isPending} />
+                <ExpenseTable expenses={courierExpenses} onDelete={(id) => deleteMutation.mutate(id)} onEdit={handleEditOpen} isPending={deleteMutation.isPending} />
               ) : (
                 <div className="flex flex-col items-center justify-center p-8 text-center">
                   <Truck className="h-10 w-10 text-muted-foreground mb-3 opacity-30" />
@@ -361,7 +484,7 @@ export default function Expenses() {
             </CardHeader>
             <CardContent className="p-0">
               {otherExpenses.length > 0 ? (
-                <ExpenseTable expenses={otherExpenses} onDelete={(id) => deleteMutation.mutate(id)} isPending={deleteMutation.isPending} />
+                <ExpenseTable expenses={otherExpenses} onDelete={(id) => deleteMutation.mutate(id)} onEdit={handleEditOpen} isPending={deleteMutation.isPending} />
               ) : (
                 <div className="flex flex-col items-center justify-center p-8 text-center">
                   <Receipt className="h-10 w-10 text-muted-foreground mb-3 opacity-30" />
@@ -380,7 +503,7 @@ export default function Expenses() {
             </CardHeader>
             <CardContent className="p-0">
               {permanentAssets.length > 0 ? (
-                <ExpenseTable expenses={permanentAssets} onDelete={(id) => deleteMutation.mutate(id)} isPending={deleteMutation.isPending} />
+                <ExpenseTable expenses={permanentAssets} onDelete={(id) => deleteMutation.mutate(id)} onEdit={handleEditOpen} isPending={deleteMutation.isPending} />
               ) : (
                 <div className="flex flex-col items-center justify-center p-8 text-center">
                   <Package className="h-10 w-10 text-muted-foreground mb-3 opacity-30" />

@@ -46,7 +46,7 @@ const supplierFormSchema = z.object({
 type SupplierFormValues = z.infer<typeof supplierFormSchema>;
 
 function formatTaka(amount: number): string {
-  return `৳${amount.toLocaleString("en-BD")}`;
+  return `৳${amount.toLocaleString("en-BD", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export default function Suppliers() {

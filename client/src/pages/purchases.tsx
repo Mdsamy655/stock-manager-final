@@ -63,7 +63,7 @@ const purchaseFormSchema = z.object({
 type PurchaseFormValues = z.infer<typeof purchaseFormSchema>;
 
 function formatTaka(amount: number): string {
-  return `৳${amount.toLocaleString("en-BD")}`;
+  return `৳${amount.toLocaleString("en-BD", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatDate(date: string | Date | null): string {

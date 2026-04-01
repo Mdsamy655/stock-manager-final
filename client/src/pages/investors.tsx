@@ -64,7 +64,7 @@ const investorFormSchema = z.object({
 type InvestorFormValues = z.infer<typeof investorFormSchema>;
 
 function formatTaka(amount: number): string {
-  return `৳${amount.toLocaleString("en-BD")}`;
+  return `৳${amount.toLocaleString("en-BD", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatDate(date: string | Date | null): string {

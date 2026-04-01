@@ -78,6 +78,7 @@ export interface IStorage {
   getStockHistory(productId: number): Promise<StockHistory[]>;
   deleteProduct(id: number, userId: number): Promise<boolean>;
   updateSaleCourier(id: number, userId: number, consignmentId: string, courierStatus: string, trackingCode?: string): Promise<SaleWithItems | null>;
+  updateSaleStatus(id: number, userId: number, courierStatus: string, isSentToCourier?: boolean): Promise<SaleWithItems | null>;
   cancelCourierOrder(id: number, userId: number): Promise<boolean>;
   getCourierSales(userId: number): Promise<SaleWithItems[]>;
 
@@ -91,6 +92,7 @@ export interface IStorage {
 
   getExpenses(userId: number): Promise<Expense[]>;
   createExpense(userId: number, expense: InsertExpense): Promise<Expense>;
+  updateExpense(id: number, userId: number, expense: Partial<InsertExpense>): Promise<Expense | null>;
   deleteExpense(id: number, userId: number): Promise<boolean>;
 
   getSuppliers(userId: number): Promise<Supplier[]>;
@@ -398,6 +400,16 @@ export class DatabaseStorage implements IStorage {
     return { ...allSales[0], items };
   }
 
+  async updateSaleStatus(id: number, userId: number, courierStatus: string, isSentToCourier?: boolean): Promise<SaleWithItems | null> {
+    const updateData: any = { courierStatus };
+    if (isSentToCourier !== undefined) updateData.isSentToCourier = isSentToCourier;
+    await db.update(sales).set(updateData).where(and(eq(sales.id, id), eq(sales.userId, userId)));
+    const allSales = await db.select().from(sales).where(and(eq(sales.id, id), eq(sales.userId, userId)));
+    if (allSales.length === 0) return null;
+    const items = await db.select().from(saleItems).where(eq(saleItems.saleId, id));
+    return { ...allSales[0], items };
+  }
+
   async cancelCourierOrder(id: number, userId: number): Promise<boolean> {
     const client = await pool.connect();
     try {
@@ -540,6 +552,11 @@ export class DatabaseStorage implements IStorage {
   async createExpense(userId: number, expense: InsertExpense): Promise<Expense> {
     const [created] = await db.insert(expenses).values({ ...expense, userId }).returning();
     return created;
+  }
+
+  async updateExpense(id: number, userId: number, expense: Partial<InsertExpense>): Promise<Expense | null> {
+    const [updated] = await db.update(expenses).set(expense).where(and(eq(expenses.id, id), eq(expenses.userId, userId))).returning();
+    return updated ?? null;
   }
 
   async deleteExpense(id: number, userId: number): Promise<boolean> {
